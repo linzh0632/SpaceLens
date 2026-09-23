@@ -25,7 +25,7 @@
 | 与 Looq 共存 | Looq 未禁用；本机两个目标输入已由 SpaceLens 命中，不保证所有设备选择顺序相同 |
 | 原生格式回归 | 用户确认 PNG/PDF 正常显示、WAV/MOV 可播放；更新后验收文件与文件夹仍正常 |
 | 重启后恢复 | 宿主应用重新启动已验证；整机重启尚未执行 |
-| GitHub CI | 配置已编写；远程执行结果须另查，不能替代本机 Finder 验收 |
+| GitHub CI | 代码提交 a65f3ab 的 macOS 构建与测试通过：[运行记录](https://github.com/linzh0632/SpaceLens/actions/runs/35828012228)；不能替代本机 Finder 验收 |
 
 核心测试覆盖 UTF-8/空文本、无效编码、截断 Unicode 边界、目录限制/不递归、空目录/循环链接、文件名换行转义、取消、精确大小边界、不存在文件和 FIFO 拒绝读取。
 
