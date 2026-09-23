@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -30,6 +30,7 @@
 			<array>
 				<string>io.github.linzh0632.spacelens.sample</string>
 				<string>public.folder</string>
+				<string>public.zip-archive</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
