@@ -14,8 +14,8 @@ struct SpaceLensApp: App {
                     }
                 }
                 Divider()
-                Text("第三阶段 · 常用格式").font(.headline)
-                Text("当前支持文件夹、ZIP、文本、代码、配置、Markdown、CSV/TSV 和 JSON/JSON Lines。图片、PDF、音视频继续使用系统预览。")
+                Text("第四阶段 A · 更多归档").font(.headline)
+                Text("当前支持文件夹、ZIP、TAR、GZ/TGZ、BZ2/TBZ2、XZ/TXZ，以及常用文本和结构化数据。图片、PDF、音视频继续使用系统预览。")
                 Text("如果文件夹仍显示其他预览，请在系统设置的扩展管理中检查 SpaceLens 与现有预览扩展。")
                     .foregroundColor(.secondary)
                 HStack {

@@ -9,6 +9,7 @@ public struct PreviewSnapshot: Sendable {
         case structured
         case directory
         case zip
+        case archive
     }
 
     public struct TableData: Sendable, Equatable {
@@ -105,8 +106,8 @@ public enum PreviewFailure: LocalizedError, Equatable {
         case .unsupported: return "SpaceLens 暂不支持这种文件。"
         case .invalidText: return "文本编码无法识别；当前支持 UTF-8 和带 BOM 的 UTF-16。"
         case .malformedText(let detail): return detail
-        case .damagedArchive(let detail): return "ZIP 文件已损坏或不完整：\(detail)"
-        case .unsupportedArchive(let detail): return "暂不支持这个 ZIP：\(detail)"
+        case .damagedArchive(let detail): return "归档文件已损坏或不完整：\(detail)"
+        case .unsupportedArchive(let detail): return "暂不支持这个归档：\(detail)"
         }
     }
 }
@@ -136,6 +137,8 @@ public enum PreviewLoader {
         switch url.pathExtension.lowercased() {
         case "zip": return try ZipPreview.load(url, entryLimit: entryLimit)
         case "spacelens": return try loadAcceptanceFile(url)
+        case let ext where ArchivePreview.extensions.contains(ext):
+            return try ArchivePreview.load(url, entryLimit: entryLimit)
         default: return try CommonTextPreview.load(url, byteLimit: maximumTextBytes)
         }
     }

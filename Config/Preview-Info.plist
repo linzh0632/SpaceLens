@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.0</string>
+	<string>0.4.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>6</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -66,6 +66,14 @@
 				<string>public.ndjson</string>
 				<string>public.comma-separated-values-text</string>
 				<string>public.tab-separated-values-text</string>
+				<string>io.github.linzh0632.spacelens.archive</string>
+				<string>public.tar-archive</string>
+				<string>org.gnu.gnu-zip-tar-archive</string>
+				<string>public.tar-bzip2-archive</string>
+				<string>org.tukaani.tar-xz-archive</string>
+				<string>org.gnu.gnu-zip-archive</string>
+				<string>public.bzip2-archive</string>
+				<string>org.tukaani.xz-archive</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

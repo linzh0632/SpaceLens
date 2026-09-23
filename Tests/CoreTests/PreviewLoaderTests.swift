@@ -128,6 +128,51 @@ final class PreviewLoaderTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("损坏"))
         }
     }
+    func testTarMetadataWarningsAndLimit() throws {
+        let data = makeTar([
+            TarEntry(name: "Folder/", folder: true),
+            TarEntry(name: "Folder/hello.txt", payload: Data("hello SpaceLens\n".utf8)),
+            TarEntry(name: "../escape.txt", payload: Data("unsafe".utf8))
+        ])
+        let result = try PreviewLoader.load(write("sample.tar", data))
+        XCTAssertEqual(result.contentKind, .archive)
+        XCTAssertEqual(result.items.map(\.path), ["Folder/", "Folder/hello.txt", "../escape.txt"])
+        XCTAssertTrue(result.summary.contains("1 个文件夹 · 2 个文件"))
+        XCTAssertTrue(result.summary.contains("1 项路径不安全"))
+        XCTAssertEqual(result.items[1].size, 16)
+
+        let limited = try PreviewLoader.load(write("limited.tar", data), entryLimit: 1,
+                                             depthLimit: PreviewLoader.maximumDepth)
+        XCTAssertTrue(limited.truncated)
+        XCTAssertEqual(limited.items.count, 1)
+        XCTAssertTrue(limited.summary.contains("仅显示前 1 项"))
+    }
+    func testCompressedTarFamilies() throws {
+        let fixtures: [(String, String, String)] = [
+            ("sample.tgz", "H4sIAAAAAAAC/+3RMQoCMRBA0ak9RU6gyZBsbrCVnSdYNGARXNmN4PENsVuwjCD+18wwzRR/nPMlLQfpyVYxhDar7Wy780F9jNa3e1RVMUG+4LGWaakv5T+N7/7XlPO8L8/Sq//g/ef+uunvnA2DGEv/7lp4c7pP53RMt3UnAAAAAAAAAAAAAAAAAH7GC3WCBjkAKAAA", "GZIP"),
+            ("sample.tbz2", "QlpoOTFBWSZTWTIIitQAAI1/gMqQQABAAfeAAQRIIG5F3kAICCAAkglRMho0AAA0aNBJKG1MSHoQ0DQZNH7WdNysSAk6SEX00MI3BI3soiEMLWpaETCATYCBMqAOnawDIygzVlvJoUJOXxHLncllVMoVEsxg5bEo90OnnbxzxvWpSMEpOzxos9+IOPoF2AhAfi7kinChIGQRFag=", "BZIP2"),
+            ("sample.txz", "/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4Cf/AIhdACMbyYZYRyBGQoRqcSuY+NILyi35hoL+pVVXfn/g1zx21CvvIgNK7qm3LbMFQfynH/gj8xr6b55FnbMlfeQJAtng8mpEXk8KaSwa8SaAqWmB0JKYXDakeEC1+HJ4czBaAqg/ujkvqRJPBfkMwEnX32xD6zuB1R13XPHn4ZA7D19x+1H/vXqj1AwAiW+xKVfy7d4AAaQBgFAAAB42Xf2xxGf7AgAAAAAEWVo=", "XZ")
+        ]
+        for (name, encoded, filter) in fixtures {
+            let result = try PreviewLoader.load(write(name, Data(base64Encoded: encoded)!))
+            XCTAssertEqual(result.contentKind, .archive, name)
+            XCTAssertEqual(result.items.map(\.path), ["Folder/", "Folder/hello.txt"], name)
+            XCTAssertTrue(result.body.contains(filter), name)
+        }
+    }
+    func testStandaloneGzip() throws {
+        let encoded = "H4sIAAAAAAAC/ysuScxLSczJz0tVSK/KLOACANugwj0QAAAA"
+        let result = try PreviewLoader.load(write("plain.txt.gz", Data(base64Encoded: encoded)!))
+        XCTAssertEqual(result.contentKind, .archive)
+        XCTAssertEqual(result.items.count, 1)
+        XCTAssertNil(result.items.first?.size)
+        XCTAssertTrue(result.body.contains("GZIP"))
+    }
+    func testDamagedTarIsExplicit() throws {
+        XCTAssertThrowsError(try PreviewLoader.load(write("broken.tar", Data("not an archive".utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("归档文件已损坏"))
+        }
+    }
     func testCommonTextAndCodeClassification() throws {
         let text = try PreviewLoader.load(write("notes.txt", Data("hello\nworld".utf8)))
         XCTAssertEqual(text.contentKind, .text)
@@ -206,7 +251,39 @@ private struct ZipEntry {
     var flags: UInt16 = 0
 }
 
+private struct TarEntry {
+    let name: String
+    var payload = Data()
+    var folder = false
+}
+
 private extension PreviewLoaderTests {
+    func makeTar(_ entries: [TarEntry]) -> Data {
+        var archive = Data()
+        for entry in entries {
+            var header = Data(repeating: 0, count: 512)
+            header.writeASCII(entry.name, at: 0, length: 100)
+            header.writeOctal(entry.folder ? 0o755 : 0o644, at: 100, length: 8)
+            header.writeOctal(0, at: 108, length: 8)
+            header.writeOctal(0, at: 116, length: 8)
+            header.writeOctal(UInt64(entry.payload.count), at: 124, length: 12)
+            header.writeOctal(1_700_000_000, at: 136, length: 12)
+            header.replaceSubrange(148..<156, with: Data(repeating: 0x20, count: 8))
+            header[156] = entry.folder ? 0x35 : 0x30
+            header.writeASCII("ustar\0", at: 257, length: 6)
+            header.writeASCII("00", at: 263, length: 2)
+            let checksum = header.reduce(0) { $0 + UInt64($1) }
+            let field = String(format: "%06llo\0 ", checksum)
+            header.writeASCII(field, at: 148, length: 8)
+            archive.append(header)
+            archive.append(entry.payload)
+            let padding = (512 - entry.payload.count % 512) % 512
+            archive.append(Data(repeating: 0, count: padding))
+        }
+        archive.append(Data(repeating: 0, count: 1_024))
+        return archive
+    }
+
     func writeZip(_ name: String, entries: [ZipEntry], comment: Data = Data(), includeLocalPayload: Bool = true) throws -> URL {
         var local = Data()
         var central = Data()
@@ -238,6 +315,14 @@ private extension PreviewLoaderTests {
 }
 
 private extension Data {
+    mutating func writeASCII(_ value: String, at offset: Int, length: Int) {
+        let bytes = Data(value.utf8.prefix(length))
+        replaceSubrange(offset..<(offset + bytes.count), with: bytes)
+    }
+    mutating func writeOctal(_ value: UInt64, at offset: Int, length: Int) {
+        let text = String(format: "%0*llo", length - 1, value) + "\0"
+        writeASCII(text, at: offset, length: length)
+    }
     mutating func appendLE<T: FixedWidthInteger>(_ value: T) {
         var little = value.littleEndian
         Swift.withUnsafeBytes(of: &little) { append(contentsOf: $0) }
