@@ -1,6 +1,6 @@
 # SpaceLens 开发准备
 
-状态：准备阶段，尚未实现或验证功能。
+状态：M1 接入原型已实现；具体已测和未测范围见 docs/M1-RESULTS.md。
 
 ## 项目目标
 
@@ -45,4 +45,4 @@ M5：逐项功能对照、系统回归、安装说明及开源整理。
 
 ## 当前检查状态
 
-已安装完整 Xcode；最新环境检查、剩余阻塞及实施顺序见 [开发前检查](docs/DEVELOPMENT-READINESS.md)，功能验收见 [功能矩阵](docs/FEATURE-MATRIX.md)。应用与预览扩展尚未实现。
+已安装完整 Xcode；最新环境检查、剩余阻塞及实施顺序见 [开发前检查](docs/DEVELOPMENT-READINESS.md)，功能验收见 [功能矩阵](docs/FEATURE-MATRIX.md)。宿主与预览扩展已实现，后续按阶段扩充功能。
