@@ -8,10 +8,10 @@
 | 原生格式 | 保留图片、PDF、音视频等系统支持 | 安装前后对照，不抢占通用 UTI |
 | 文件夹 | 层级、数量、深度、修改时间、类型、大小、图标 | M2 已实现可展开树、数量、深度、时间、类型、文件大小、图标和限制 |
 | 归档 | ZIP、TAR、GZ、TGZ、TBZ2、TXZ | M2 已实现 ZIP 元数据、加密/损坏/危险路径/异常压缩比提示；其他归档留待 M4 |
-| 文档 | Markdown、MDX、IPYNB、QMD、RMD、RST、AsciiDoc、TeX | 标题、代码、表格、公式等逐格式记录；不执行 Notebook/MDX 代码；完整排版能力待验证 |
+| 文档 | Markdown、MDX、IPYNB、QMD、RMD、RST、AsciiDoc、TeX | M3 已实现安全的基础 Markdown 标题、列表、引用和代码块排版；其他复杂格式留待 M4 |
 | 图表 | Draw.io、Mermaid/MMD、PlantUML/PUML | 本地渲染、错误提示、离线依赖；不可用时明确回退 |
-| 代码与配置 | 官网展示的源代码、配置、diff、log、SQL、GraphQL 和特殊文件名 | 建立可机器读取的扩展名/文件名清单；语法高亮、编码与大文件 |
-| 文本数据 | CSV、TSV、JSON、JSONL、NDJSON、plist | 表格/层级结构、错误定位、截断；不是仅原始文本 |
+| 代码与配置 | 官网展示的源代码、配置、diff、log、SQL、GraphQL 和特殊文件名 | M3 已实现通用本地语法着色、UTF-8/UTF-16 与 5 MiB 上限；无扩展名特殊文件仍需实机逐项注册 |
+| 文本数据 | CSV、TSV、JSON、JSONL、NDJSON、plist | M3 已实现 CSV/TSV 表格和 JSON/JSON Lines 结构树、错误提示与上限；plist 留待 M4 |
 | 数据库 | DB、SQLite、SQLite3 | 按内容识别，表/列结构、只读限量样本 |
 | 列式及其他数据 | Parquet、Arrow、Feather、Avro | schema、元信息、限量数据；依赖与格式版本边界 |
 | 本地处理 | 无文件上传、无账号要求 | 断网验收；渲染不请求远程资源 |

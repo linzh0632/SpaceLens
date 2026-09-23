@@ -3,8 +3,39 @@ import Foundation
 public struct PreviewSnapshot: Sendable {
     public enum ContentKind: Sendable, Equatable {
         case text
+        case code
+        case markdown
+        case table
+        case structured
         case directory
         case zip
+    }
+
+    public struct TableData: Sendable, Equatable {
+        public let columns: [String]
+        public let rows: [[String]]
+        public let omittedRowCount: Int
+
+        public init(columns: [String], rows: [[String]], omittedRowCount: Int = 0) {
+            self.columns = columns
+            self.rows = rows
+            self.omittedRowCount = omittedRowCount
+        }
+    }
+
+    public struct StructuredItem: Sendable, Equatable {
+        public let key: String
+        public let type: String
+        public let value: String?
+        public let children: [StructuredItem]
+
+        public init(key: String, type: String, value: String? = nil,
+                    children: [StructuredItem] = []) {
+            self.key = key
+            self.type = type
+            self.value = value
+            self.children = children
+        }
     }
 
     public struct Item: Sendable, Equatable {
@@ -42,28 +73,38 @@ public struct PreviewSnapshot: Sendable {
     public let truncated: Bool
     public let contentKind: ContentKind
     public let items: [Item]
+    public let table: TableData?
+    public let structuredItems: [StructuredItem]
+    public let language: String?
 
     public init(title: String, summary: String, body: String, truncated: Bool,
-                contentKind: ContentKind = .text, items: [Item] = []) {
+                contentKind: ContentKind = .text, items: [Item] = [],
+                table: TableData? = nil, structuredItems: [StructuredItem] = [],
+                language: String? = nil) {
         self.title = title
         self.summary = summary
         self.body = body
         self.truncated = truncated
         self.contentKind = contentKind
         self.items = items
+        self.table = table
+        self.structuredItems = structuredItems
+        self.language = language
     }
 }
 
 public enum PreviewFailure: LocalizedError, Equatable {
     case unsupported
     case invalidText
+    case malformedText(String)
     case damagedArchive(String)
     case unsupportedArchive(String)
 
     public var errorDescription: String? {
         switch self {
         case .unsupported: return "SpaceLens 暂不支持这种文件。"
-        case .invalidText: return "验收文件必须是 UTF-8 文本。"
+        case .invalidText: return "文本编码无法识别；当前支持 UTF-8 和带 BOM 的 UTF-16。"
+        case .malformedText(let detail): return detail
         case .damagedArchive(let detail): return "ZIP 文件已损坏或不完整：\(detail)"
         case .unsupportedArchive(let detail): return "暂不支持这个 ZIP：\(detail)"
         }
@@ -74,6 +115,7 @@ public enum PreviewLoader {
     public static let maximumEntries = 10_000
     public static let maximumDepth = 10
     public static let maximumBytes = 64 * 1024
+    public static let maximumTextBytes = 5 * 1024 * 1024
 
     public static func load(_ url: URL) throws -> PreviewSnapshot {
         try load(url, entryLimit: maximumEntries, depthLimit: maximumDepth)
@@ -94,7 +136,7 @@ public enum PreviewLoader {
         switch url.pathExtension.lowercased() {
         case "zip": return try ZipPreview.load(url, entryLimit: entryLimit)
         case "spacelens": return try loadAcceptanceFile(url)
-        default: throw PreviewFailure.unsupported
+        default: return try CommonTextPreview.load(url, byteLimit: maximumTextBytes)
         }
     }
 

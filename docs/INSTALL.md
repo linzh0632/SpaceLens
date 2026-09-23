@@ -1,6 +1,6 @@
 # SpaceLens 本机安装与验收
 
-当前为 M2（0.2.0），支持专用 `.spacelens` 文件、递归文件夹树与 ZIP 只读内容预览。代码高亮等属于后续阶段。
+当前为 M3（0.3.0），支持专用 `.spacelens` 文件、递归文件夹树、ZIP，以及文本、代码、配置、Markdown、CSV/TSV 和 JSON/JSON Lines。
 
 ## 构建与安装
 
@@ -24,7 +24,9 @@
 2. 在 Finder 选中文件按空格，应出现“SpaceLens · 验收文件”。
 3. 选择普通文件夹按空格，应出现“SpaceLens · 文件夹”，最多读取 10,000 项和 10 层。
 4. 选择 ZIP 按空格，应显示归档条目、大小、压缩方法和修改时间；SpaceLens 不会解压内容。
-5. 若没有出现，打开系统设置，查找“登录项与扩展”中的 Quick Look，启用 SpaceLens。不同系统版本的入口可能不同。
+5. 选择 Markdown 或代码文件，应显示 SpaceLens 排版或语法着色；选择 TSV 应显示 SpaceLens 表格；选择 JSON/JSON Lines 应显示可展开结构树。
+6. 选择 CSV 和普通 TXT，应继续显示 macOS 原生预览。在 macOS 27 上，这两类文件由系统内置 Office/Text 生成器优先处理，SpaceLens 不强行移除或禁用系统生成器。
+6. 若没有出现，打开系统设置，查找“登录项与扩展”中的 Quick Look，启用 SpaceLens。不同系统版本的入口可能不同。
 
 本机已有 Looq。若同类文件被它接管，需要在系统设置中选择预览扩展。SpaceLens 不会自动关闭其他应用的扩展，也不会注册图片、PDF、音视频等通用类型。
 

@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.0</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>4</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -29,8 +29,43 @@
 			<key>QLSupportedContentTypes</key>
 			<array>
 				<string>io.github.linzh0632.spacelens.sample</string>
+				<string>io.github.linzh0632.spacelens.markdown</string>
+				<string>io.github.linzh0632.spacelens.code</string>
+				<string>io.github.linzh0632.spacelens.structured-text</string>
+				<string>io.github.linzh0632.spacelens.table-text</string>
+				<string>io.github.linzh0632.spacelens.plain-text</string>
 				<string>public.folder</string>
 				<string>public.zip-archive</string>
+				<string>public.plain-text</string>
+				<string>net.daringfireball.markdown</string>
+				<string>public.swift-source</string>
+				<string>public.bash-script</string>
+				<string>public.c-source</string>
+				<string>public.c-plus-plus-source</string>
+				<string>public.c-header</string>
+				<string>public.c-plus-plus-header</string>
+				<string>public.objective-c-source</string>
+				<string>public.objective-c-plus-plus-source</string>
+				<string>public.css</string>
+				<string>public.patch-file</string>
+				<string>public.html</string>
+				<string>com.sun.java-source</string>
+				<string>com.netscape.javascript-source</string>
+				<string>org.tug.lua</string>
+				<string>public.php-script</string>
+				<string>public.python-script</string>
+				<string>public.ruby-script</string>
+				<string>public.shell-script</string>
+				<string>public.toml</string>
+				<string>com.microsoft.typescript</string>
+				<string>public.xml</string>
+				<string>public.yaml</string>
+				<string>public.zsh-script</string>
+				<string>com.apple.log</string>
+				<string>public.json</string>
+				<string>public.ndjson</string>
+				<string>public.comma-separated-values-text</string>
+				<string>public.tab-separated-values-text</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
