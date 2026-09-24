@@ -4,11 +4,12 @@
 
 面向 macOS 的本地快速预览增强工具，保留系统原生预览体验，并以 Super Quick Look 的公开功能为首版对照目标。
 
-**当前状态：M2 开发中；已实现递归文件夹树和 ZIP 只读内容预览。**
+**当前状态：M3 已完成；已实现文件夹、ZIP、常用文本、代码、Markdown、CSV/TSV 和 JSON 预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
 
 - [安装、更新与卸载](docs/INSTALL.md)
 - [M1 实测结果与限制](docs/M1-RESULTS.md)
 - [M2 范围与验收](docs/M2-RESULTS.md)
+- [M3 范围与验收](docs/M3-RESULTS.md)
 
 - [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)
 - [功能对照与验收矩阵](docs/FEATURE-MATRIX.md)

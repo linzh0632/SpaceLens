@@ -128,6 +128,65 @@ final class PreviewLoaderTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("损坏"))
         }
     }
+    func testCommonTextAndCodeClassification() throws {
+        let text = try PreviewLoader.load(write("notes.txt", Data("hello\nworld".utf8)))
+        XCTAssertEqual(text.contentKind, .text)
+        XCTAssertTrue(text.summary.contains("2 行"))
+        let code = try PreviewLoader.load(write("main.swift", Data("let value = 42".utf8)))
+        XCTAssertEqual(code.contentKind, .code)
+        XCTAssertEqual(code.language, "SWIFT")
+    }
+    func testUTF16TextAndInvalidEncoding() throws {
+        var utf16 = Data([0xff, 0xfe])
+        utf16.append("你好".data(using: .utf16LittleEndian)!)
+        XCTAssertEqual(try PreviewLoader.load(write("utf16.txt", utf16)).body, "你好")
+        XCTAssertThrowsError(try PreviewLoader.load(write("invalid.txt", Data([0xff, 0x00, 0xff]))))
+    }
+    func testMarkdownClassification() throws {
+        let result = try PreviewLoader.load(write("README.md", Data("# Title\n\n- item".utf8)))
+        XCTAssertEqual(result.contentKind, .markdown)
+        XCTAssertEqual(result.language, "Markdown")
+    }
+    func testCSVQuotedCellsAndMissingValues() throws {
+        let value = "name,note,age\nAda,\"hello, world\",36\nBob,,40\n"
+        let result = try PreviewLoader.load(write("people.csv", Data(value.utf8)))
+        XCTAssertEqual(result.contentKind, .table)
+        XCTAssertEqual(result.table?.columns, ["name", "note", "age"])
+        XCTAssertEqual(result.table?.rows.first, ["Ada", "hello, world", "36"])
+        XCTAssertEqual(result.table?.rows.last, ["Bob", "", "40"])
+    }
+    func testJSONAndJSONLinesStructure() throws {
+        let json = try PreviewLoader.load(write("sample.json", Data("{\"name\":\"SpaceLens\",\"enabled\":true,\"items\":[1,2]}".utf8)))
+        XCTAssertEqual(json.contentKind, .structured)
+        XCTAssertEqual(json.structuredItems.first?.type, "对象")
+        XCTAssertEqual(json.structuredItems.first?.children.map(\.key), ["enabled", "items", "name"])
+        let jsonl = try PreviewLoader.load(write("sample.jsonl", Data("{\"id\":1}\n{\"id\":2}".utf8)))
+        XCTAssertEqual(jsonl.structuredItems.count, 2)
+    }
+    func testMalformedCSVAndJSONAreExplicit() throws {
+        XCTAssertThrowsError(try PreviewLoader.load(write("bad.csv", Data("a,b\n\"open,b".utf8))))
+        XCTAssertThrowsError(try PreviewLoader.load(write("bad.json", Data("{oops}".utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("JSON 格式错误"))
+        }
+    }
+    func testCommonTextReadIsBounded() throws {
+        let data = Data(repeating: 65, count: PreviewLoader.maximumTextBytes + 1)
+        let result = try PreviewLoader.load(write("large.log", data))
+        XCTAssertTrue(result.truncated)
+        XCTAssertEqual(result.body.utf8.count, PreviewLoader.maximumTextBytes)
+    }
+    func testTableAndJSONNodeLimits() throws {
+        let csv = "value\n" + (0..<1_002).map(String.init).joined(separator: "\n")
+        let table = try PreviewLoader.load(write("large.csv", Data(csv.utf8)))
+        XCTAssertEqual(table.table?.rows.count, 1_000)
+        XCTAssertEqual(table.table?.omittedRowCount, 2)
+        XCTAssertTrue(table.truncated)
+
+        let json = "[" + (0..<10_050).map(String.init).joined(separator: ",") + "]"
+        let tree = try PreviewLoader.load(write("large.json", Data(json.utf8)))
+        XCTAssertEqual(tree.structuredItems.first?.children.count, 9_999)
+        XCTAssertTrue(tree.truncated)
+    }
     func testCancellation() async throws {
         let url = try write("cancel.spacelens", Data("test".utf8))
         let task = Task {
