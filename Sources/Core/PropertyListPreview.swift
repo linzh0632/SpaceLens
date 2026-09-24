@@ -12,6 +12,14 @@ enum PropertyListPreview {
             throw PreviewFailure.malformedText("属性列表超过 20 MiB 的安全读取上限。")
         }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+        return try load(data: data, name: url.lastPathComponent)
+    }
+
+    /// Entry point for content already in memory, e.g. a plist read out of an archive.
+    static func load(data: Data, name: String) throws -> PreviewSnapshot {
+        guard data.count <= maximumBytes else {
+            throw PreviewFailure.malformedText("属性列表超过 20 MiB 的安全读取上限。")
+        }
         try Task.checkCancellation()
         var format = PropertyListSerialization.PropertyListFormat.xml
         let value: Any
@@ -30,7 +38,7 @@ enum PropertyListPreview {
         }
         let truncated = budget.truncated
         return PreviewSnapshot(
-            title: url.lastPathComponent,
+            title: name,
             summary: "SpaceLens · \(formatName) · 结构化预览\(truncated ? " · 已限制为 \(maximumNodes) 个节点/\(maximumDepth) 层" : "")",
             body: "",
             truncated: truncated,

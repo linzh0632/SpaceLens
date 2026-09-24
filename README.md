@@ -4,7 +4,7 @@
 
 面向 macOS 的本地快速预览增强工具，保留系统原生预览体验，并以 Super Quick Look 的公开功能为首版对照目标。
 
-**当前状态：M1 至 M6 已完成并通过自动检查与 Finder 实机验收。文件夹和归档列表支持按系统语言显示修改时间。已实现文件夹、常用归档、文本、代码、配置、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
+**当前状态：M1 至 M6 已完成并通过自动检查与 Finder 实机验收；M7a 已实现容器内条目预览。文件夹和归档列表支持按系统语言显示修改时间，点击列表中的条目可在右侧窗格就地预览。已实现文件夹、常用归档、文本、代码、配置、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
 
 - [安装、更新与卸载](docs/INSTALL.md)
 - [M1 实测结果与限制](docs/M1-RESULTS.md)
@@ -18,12 +18,13 @@
 - [M4F 范围与验收](docs/M4F-RESULTS.md)
 - [M5 范围与验收](docs/M5-RESULTS.md)
 - [M6 范围与验收](docs/M6-RESULTS.md)
+- [M7a 容器内条目预览](docs/M7-RESULTS.md)
 - [维护说明](docs/MAINTENANCE.md)
 - [文件类型与默认打开应用审计](docs/FILE-ASSOCIATIONS.md)
 
 - [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)
 - [功能对照与验收矩阵](docs/FEATURE-MATRIX.md)
-- [M7 容器内条目预览（设计稿，未实现）](docs/M7-DESIGN.md)
+- [M7 容器内条目预览（设计，M7a 已实现）](docs/M7-DESIGN.md)
 - [项目目标与约定](SpaceLens-PREPARATION.md)
 
 ## 开发环境

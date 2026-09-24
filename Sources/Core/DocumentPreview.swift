@@ -8,16 +8,15 @@ enum DocumentPreview {
     private static let maximumOutputsPerCell = 20
     private static let maximumOutputCharacters = 10_000
 
-    static func load(_ url: URL, byteLimit: Int) throws -> PreviewSnapshot {
-        let ext = url.pathExtension.lowercased()
-        let (source, truncated) = try CommonTextPreview.readText(url, byteLimit: byteLimit)
+    static func load(source: String, truncated: Bool, name: String, ext: String,
+                     byteLimit: Int) throws -> PreviewSnapshot {
         try Task.checkCancellation()
         let suffix = truncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""
         if ext == "ipynb" {
             guard !truncated else {
                 throw PreviewFailure.malformedText("Jupyter Notebook 超过 \(formatBytes(Int64(byteLimit))) 的安全读取上限。")
             }
-            return try loadNotebook(url, source: source)
+            return try loadNotebook(name: name, source: source)
         }
 
         let format: String
@@ -32,7 +31,7 @@ enum DocumentPreview {
         default: throw PreviewFailure.unsupported
         }
         return PreviewSnapshot(
-            title: url.lastPathComponent,
+            title: name,
             summary: "SpaceLens · \(format) · \(lineCount(source)) 行\(suffix)",
             body: body,
             truncated: truncated,
@@ -41,7 +40,7 @@ enum DocumentPreview {
         )
     }
 
-    private static func loadNotebook(_ url: URL, source: String) throws -> PreviewSnapshot {
+    private static func loadNotebook(name: String, source: String) throws -> PreviewSnapshot {
         let object: Any
         do {
             object = try JSONSerialization.jsonObject(with: Data(source.utf8))
@@ -82,7 +81,7 @@ enum DocumentPreview {
         let limited = cells.count > maximumNotebookCells
         let limitNote = limited ? " · 仅显示前 \(maximumNotebookCells) 个单元格" : ""
         return PreviewSnapshot(
-            title: url.lastPathComponent,
+            title: name,
             summary: "SpaceLens · Jupyter Notebook · \(cells.count) 个单元格 · \(markdownCount) 个 Markdown · \(codeCount) 个代码\(limitNote)",
             body: rendered.joined(separator: "\n\n"),
             truncated: limited,

@@ -30,42 +30,69 @@ enum CommonTextPreview {
     private static let maximumJSONDepth = 50
 
     static func load(_ url: URL, byteLimit: Int) throws -> PreviewSnapshot {
+        let name = url.lastPathComponent
         let ext = url.pathExtension.lowercased()
-        let filename = url.lastPathComponent.lowercased()
-        guard markdownExtensions.contains(ext) || tableExtensions.contains(ext) ||
-                structuredExtensions.contains(ext) || codeExtensions.contains(ext) ||
-                plainExtensions.contains(ext) || DocumentPreview.extensions.contains(ext) || DiagramPreview.extensions.contains(ext) || specialNames.contains(filename) else {
-            throw PreviewFailure.unsupported
+        guard supports(name: name, ext: ext) else { throw PreviewFailure.unsupported }
+        let (data, truncated) = try readBounded(url, byteLimit: byteLimit)
+        return try load(data: data, truncated: truncated, byteLimit: byteLimit, name: name, ext: ext)
+    }
+
+    /// Whether `name`/`ext` is handled by the text pipeline. The container detail pane needs to
+    /// decide this from an archive entry's name alone, without touching the file system.
+    static func supports(name: String, ext: String) -> Bool {
+        let filename = name.lowercased()
+        return markdownExtensions.contains(ext) || tableExtensions.contains(ext) ||
+            structuredExtensions.contains(ext) || codeExtensions.contains(ext) ||
+            plainExtensions.contains(ext) || DocumentPreview.extensions.contains(ext) ||
+            DiagramPreview.extensions.contains(ext) || specialNames.contains(filename)
+    }
+
+    /// Entry point for content already in memory, e.g. a file read out of an archive.
+    static func load(data: Data, truncated: Bool, byteLimit: Int,
+                     name: String, ext: String) throws -> PreviewSnapshot {
+        let filename = name.lowercased()
+        guard supports(name: name, ext: ext) else { throw PreviewFailure.unsupported }
+        let (source, textTruncated) = try decodeText(data, truncated: truncated)
+        if DocumentPreview.extensions.contains(ext) {
+            return try DocumentPreview.load(source: source, truncated: textTruncated,
+                                            name: name, ext: ext, byteLimit: byteLimit)
         }
-        if DocumentPreview.extensions.contains(ext) { return try DocumentPreview.load(url, byteLimit: byteLimit) }
-        if DiagramPreview.extensions.contains(ext) { return try DiagramPreview.load(url, byteLimit: byteLimit) }
-        let (source, truncated) = try readText(url, byteLimit: byteLimit)
+        if DiagramPreview.extensions.contains(ext) {
+            return try DiagramPreview.load(source: source, truncated: textTruncated,
+                                           name: name, ext: ext, byteLimit: byteLimit)
+        }
         try Task.checkCancellation()
-        let suffix = truncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""
+        let suffix = textTruncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""
         if markdownExtensions.contains(ext) {
-            return PreviewSnapshot(title: url.lastPathComponent,
+            return PreviewSnapshot(title: name,
                 summary: "SpaceLens · Markdown · \(lineCount(source)) 行\(suffix)", body: source,
-                truncated: truncated, contentKind: .markdown, language: "Markdown")
+                truncated: textTruncated, contentKind: .markdown, language: "Markdown")
         }
         if tableExtensions.contains(ext) {
-            return try loadTable(url, source: source, delimiter: ext == "tsv" ? "\t" : ",", truncated: truncated, suffix: suffix)
+            return try loadTable(name: name, source: source, delimiter: ext == "tsv" ? "\t" : ",", truncated: textTruncated, suffix: suffix)
         }
         if structuredExtensions.contains(ext) {
-            return try loadStructured(url, source: source, lineDelimited: ext != "json", truncated: truncated, suffix: suffix)
+            return try loadStructured(name: name, source: source, lineDelimited: ext != "json", truncated: textTruncated, suffix: suffix)
         }
         let language = languageName(extension: ext, filename: filename)
         let kind: PreviewSnapshot.ContentKind = codeExtensions.contains(ext) || specialNames.contains(filename) ? .code : .text
-        return PreviewSnapshot(title: url.lastPathComponent,
+        return PreviewSnapshot(title: name,
             summary: "SpaceLens · \(kind == .code ? language : "文本") · \(lineCount(source)) 行\(suffix)",
-            body: source, truncated: truncated, contentKind: kind, language: language)
+            body: source, truncated: textTruncated, contentKind: kind, language: language)
     }
 
-    static func readText(_ url: URL, byteLimit: Int) throws -> (String, Bool) {
+    /// Reads at most `byteLimit` bytes, plus one extra byte only to detect truncation.
+    static func readBounded(_ url: URL, byteLimit: Int) throws -> (Data, Bool) {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         let data = try file.read(upToCount: byteLimit + 1) ?? Data()
-        let truncated = data.count > byteLimit
-        var prefix = Data(data.prefix(byteLimit))
+        return (Data(data.prefix(byteLimit)), data.count > byteLimit)
+    }
+
+    /// Decodes UTF-8 or BOM-marked UTF-16 text. When `truncated`, a multi-byte character cut in
+    /// half at the limit is dropped rather than failing the whole preview.
+    static func decodeText(_ data: Data, truncated: Bool) throws -> (String, Bool) {
+        var prefix = data
         let text: String?
         if prefix.starts(with: [0xff, 0xfe]) {
             if prefix.count.isMultiple(of: 2) == false { prefix.removeLast() }
@@ -87,7 +114,7 @@ enum CommonTextPreview {
         return (text, truncated)
     }
 
-    private static func loadTable(_ url: URL, source: String, delimiter: Character,
+    private static func loadTable(name: String, source: String, delimiter: Character,
                                   truncated: Bool, suffix: String) throws -> PreviewSnapshot {
         let parsed = try parseDelimited(source, delimiter: delimiter)
         let rawHeader = parsed.rows.first ?? []
@@ -107,7 +134,7 @@ enum CommonTextPreview {
         let omitted = max(0, totalDataRows - visibleRows.count)
         let limits = omitted > 0 ? " · 另有 \(omitted) 行未显示" : ""
         let columnLimit = rawHeader.count > maximumColumns ? " · 仅显示前 \(maximumColumns) 列" : ""
-        return PreviewSnapshot(title: url.lastPathComponent,
+        return PreviewSnapshot(title: name,
             summary: "SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(totalDataRows) 行 · \(rawHeader.count) 列\(limits)\(columnLimit)\(suffix)",
             body: source, truncated: truncated || omitted > 0 || rawHeader.count > maximumColumns,
             contentKind: .table,
@@ -162,7 +189,7 @@ enum CommonTextPreview {
         return ParsedTable(rows: rows, totalRowCount: totalRowCount)
     }
 
-    private static func loadStructured(_ url: URL, source: String, lineDelimited: Bool,
+    private static func loadStructured(name: String, source: String, lineDelimited: Bool,
                                        truncated: Bool, suffix: String) throws -> PreviewSnapshot {
         var budget = maximumJSONNodes
         let roots: [PreviewSnapshot.StructuredItem]
@@ -177,7 +204,7 @@ enum CommonTextPreview {
             let value = try parseJSON(Data(source.utf8))
             roots = [try structuredItem(key: "根", value: value, depth: 0, budget: &budget)]
         }
-        return PreviewSnapshot(title: url.lastPathComponent,
+        return PreviewSnapshot(title: name,
             summary: "SpaceLens · \(lineDelimited ? "JSON Lines" : "JSON") · 结构化预览\(suffix)",
             body: source, truncated: truncated || budget == 0, contentKind: .structured,
             structuredItems: roots, language: "JSON")

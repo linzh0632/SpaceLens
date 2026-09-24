@@ -108,7 +108,7 @@ enum ArchivePreview {
             let dateText = modificationDate.map { " · \(formatDate($0))" } ?? ""
             let warningText = warnings.isEmpty ? "" : " · ⚠︎ " + warnings.joined(separator: "、")
             rows.append("[\(displayKind)] \(escaped(path))\(sizeText) · \(filter)\(dateText)\(warningText)")
-            items.append(.init(path: escaped(path), kind: kind, size: size,
+            items.append(.init(path: escaped(path), sourcePath: path, kind: kind, size: size,
                                modificationDate: modificationDate,
                                compression: filter, warnings: warnings))
             let skipped = archive_read_data_skip(archive)
@@ -161,7 +161,9 @@ enum ArchivePreview {
         return url.pathExtension.uppercased()
     }
 
-    private static func normalized(_ value: String) -> String {
+    /// Shared with `EmbeddedPreviewLoader`, which must match stored entry paths against the
+    /// names libarchive reports for the same archive.
+    static func normalized(_ value: String) -> String {
         var result = value
         while result.hasPrefix("./") { result.removeFirst(2) }
         if result == "." { return "" }

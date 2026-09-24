@@ -4,6 +4,14 @@ cd "$(dirname "$0")/.."
 derived="${SPACELENS_DERIVED_DATA:-${TMPDIR:-/tmp}/SpaceLens-DerivedData}"
 source_app="$derived/Build/Products/Release/SpaceLens.app"
 target="${SPACELENS_INSTALL_DIR:-/Applications}/SpaceLens.app"
+# `release-check.sh` builds into its own temporary directory, so passing it does not refresh the
+# build installed here. Warn instead of silently installing a stale bundle.
+if [[ -e "$source_app" ]]; then
+    stale=$(find Sources Config -type f -newer "$source_app" -print -quit)
+    if [[ -n "$stale" ]]; then
+        echo "Warning: $source_app is older than $stale; run ./scripts/build.sh first." >&2
+    fi
+fi
 codesign --verify --strict "$source_app/Contents/PlugIns/SpaceLensPreview.appex"
 codesign --verify --strict "$source_app"
 if [[ -e "$target" ]]; then
