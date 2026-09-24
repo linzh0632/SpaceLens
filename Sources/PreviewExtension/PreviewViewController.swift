@@ -102,19 +102,24 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
         let name = NSTableColumn(identifier: .nameColumn)
         name.title = "名称"
-        name.minWidth = 280
-        name.width = 540
+        name.minWidth = 240
+        name.width = 390
         let kind = NSTableColumn(identifier: .kindColumn)
         kind.title = "类型"
-        kind.minWidth = 110
-        kind.width = 150
+        kind.minWidth = 100
+        kind.width = 130
         let size = NSTableColumn(identifier: .sizeColumn)
         size.title = "大小"
-        size.minWidth = 90
-        size.width = 120
+        size.minWidth = 80
+        size.width = 100
+        let modificationDate = NSTableColumn(identifier: .modificationDateColumn)
+        modificationDate.title = "修改时间"
+        modificationDate.minWidth = 160
+        modificationDate.width = 190
         outline.addTableColumn(name)
         outline.addTableColumn(kind)
         outline.addTableColumn(size)
+        outline.addTableColumn(modificationDate)
         outline.outlineTableColumn = name
 
         tableScroll.documentView = outline
@@ -218,7 +223,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         diagramScroll.isHidden = true
         switch snapshot.contentKind {
         case .directory, .zip, .archive:
-            configureOutlineColumns(name: "名称", kind: "类型", value: "大小")
+            configureOutlineColumns(name: "名称", kind: "类型", value: "大小", showsModificationDate: true)
             let isArchive = snapshot.contentKind == .zip || snapshot.contentKind == .archive
             fileIcon.image = NSImage(systemSymbolName: isArchive ? "doc.zipper" : "folder.fill",
                                      accessibilityDescription: nil)
@@ -234,7 +239,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
                 emptyState.isHidden = false
             }
         case .structured, .database:
-            configureOutlineColumns(name: "键", kind: "类型", value: "值")
+            configureOutlineColumns(name: "键", kind: "类型", value: "值", showsModificationDate: false)
             let isDatabase = snapshot.contentKind == .database
             fileIcon.image = NSImage(systemSymbolName: isDatabase ? "cylinder.split.1x2.fill" : "curlybraces", accessibilityDescription: nil)
             fileIcon.contentTintColor = isDatabase ? .systemTeal : .systemPurple
@@ -283,10 +288,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         }
     }
 
-    private func configureOutlineColumns(name: String, kind: String, value: String) {
+    private func configureOutlineColumns(name: String, kind: String, value: String,
+                                         showsModificationDate: Bool) {
         outline.tableColumns[0].title = name
         outline.tableColumns[1].title = kind
         outline.tableColumns[2].title = value
+        outline.tableColumns[3].isHidden = !showsModificationDate
     }
 
     private func rebuildDataColumns() {
@@ -337,6 +344,9 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         case .sizeColumn:
             return labelCell(in: outlineView, identifier: .sizeCell,
                              value: node.valueLabel, alignment: node.structured == nil ? .right : .left)
+        case .modificationDateColumn:
+            return labelCell(in: outlineView, identifier: .modificationDateCell,
+                             value: node.modificationDateLabel)
         default:
             return nil
         }
@@ -410,6 +420,22 @@ private final class PreviewNode: NSObject {
         if let structured { return structured.value ?? "—" }
         return item?.size.map(formatBytes) ?? "—"
     }
+
+    var modificationDateLabel: String {
+        guard structured == nil else { return "" }
+        guard let date = item?.modificationDate else { return "—" }
+        return Self.modificationDateFormatter.string(from: date)
+    }
+
+    private static let modificationDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        let language = Locale.preferredLanguages.first ?? Locale.autoupdatingCurrent.identifier
+        formatter.locale = Locale(identifier: language)
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        formatter.doesRelativeDateFormatting = false
+        return formatter
+    }()
 
     static func makeTree(from items: [PreviewSnapshot.Item]) -> [PreviewNode] {
         let root = PreviewNode(name: "")
@@ -542,9 +568,11 @@ private extension NSUserInterfaceItemIdentifier {
     static let nameColumn = Self("name")
     static let kindColumn = Self("kind")
     static let sizeColumn = Self("size")
+    static let modificationDateColumn = Self("modificationDate")
     static let nameCell = Self("nameCell")
     static let kindCell = Self("kindCell")
     static let sizeCell = Self("sizeCell")
+    static let modificationDateCell = Self("modificationDateCell")
 }
 
 private func highlightCode(_ source: String) -> NSAttributedString {
