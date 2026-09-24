@@ -27,7 +27,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private var previewedURL: URL?
     private var containerKind: PreviewSnapshot.ContentKind?
     private var detailGeneration = UUID()
-    private var didPositionSplit = false
+    private var pendingDetailPosition = false
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 900, height: 620))
@@ -84,6 +84,9 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             separator.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 28),
             separator.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -28),
             separator.topAnchor.constraint(equalTo: fileIcon.bottomAnchor, constant: 20),
+            // Same latent ambiguity as the detail pane: an unconstrained separator can absorb the
+            // vertical slack and squeeze the content area.
+            separator.heightAnchor.constraint(equalToConstant: 1),
             split.leadingAnchor.constraint(equalTo: separator.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: separator.trailingAnchor),
             split.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 16),
@@ -111,10 +114,51 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        // NSSplitView has no intrinsic divider position; place it once, on the first real layout.
-        guard !didPositionSplit, split.frame.width > 0 else { return }
-        didPositionSplit = true
-        split.setPosition(min(420, max(320, split.frame.width * 0.55)), ofDividerAt: 0)
+        // NSSplitView has no intrinsic divider position, so the pane is placed when it opens.
+        if pendingDetailPosition, !detailPane.isHidden { layoutDetailPane(animated: false) }
+    }
+
+    /// The pane stays collapsed until a previewable entry is selected, so the tree keeps the full
+    /// window width the rest of the time.
+    private func setDetailVisible(_ visible: Bool) {
+        if visible {
+            if detailPane.isHidden {
+                detailPane.isHidden = false
+                split.adjustSubviews()
+            }
+            layoutDetailPane(animated: true)
+        } else if !detailPane.isHidden {
+            detailPane.isHidden = true
+            // Hiding collapses the pane in NSSplitView; pushing the divider to the edge as well
+            // makes the collapse independent of that behaviour.
+            split.setPosition(split.frame.width, ofDividerAt: 0)
+            split.adjustSubviews()
+        }
+    }
+
+    private func layoutDetailPane(animated: Bool) {
+        let width = split.frame.width
+        guard width > 1 else {
+            pendingDetailPosition = true
+            return
+        }
+        pendingDetailPosition = false
+        let paneWidth = min(max(360, width * 0.45), max(360, width - 340))
+        let position = max(0, width - paneWidth)
+        guard animated else {
+            split.setPosition(position, ofDividerAt: 0)
+            detailPane.syncDocumentSizes()
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.18
+            split.animator().setPosition(position, ofDividerAt: 0)
+        }, completionHandler: { [weak self] in
+            // Guarantee the final position even if the animation is interrupted, then re-match the
+            // document views: a small file can load before the pane reaches its final width.
+            self?.split.setPosition(position, ofDividerAt: 0)
+            self?.detailPane.syncDocumentSizes()
+        })
     }
 
     func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat,
@@ -124,7 +168,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
     func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat,
                    ofSubviewAt dividerIndex: Int) -> CGFloat {
-        max(320, splitView.frame.width - 300)
+        // A collapsed pane may travel all the way to the edge; otherwise keep it at least 300 wide.
+        detailPane.isHidden ? splitView.frame.width : max(320, splitView.frame.width - 300)
     }
 
     private func configureOutline() {
@@ -248,6 +293,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         outline.reloadData()
         split.isHidden = true
         containerKind = nil
+        setDetailVisible(false)
         detailPane.showPlaceholder("选择左侧的文件以预览内容。")
         tableScroll.isHidden = true
         textScroll.isHidden = true
@@ -277,7 +323,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             containerKind = snapshot.contentKind
             split.isHidden = roots.isEmpty
             tableScroll.isHidden = roots.isEmpty
-            detailPane.isHidden = false
+            // Nothing is selected yet, so the pane stays collapsed until a file is clicked.
+            setDetailVisible(false)
             detailPane.showPlaceholder("选择左侧的文件以预览内容。")
             textScroll.isHidden = true
             dataScroll.isHidden = true
@@ -297,7 +344,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             containerKind = nil
             split.isHidden = roots.isEmpty
             tableScroll.isHidden = roots.isEmpty
-            detailPane.isHidden = true
+            setDetailVisible(false)
             textScroll.isHidden = true
             dataScroll.isHidden = true
             if roots.isEmpty {
@@ -351,7 +398,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
               let node = outline.item(atRow: selected) as? PreviewNode,
               node.item?.kind == .file,
               let sourcePath = node.item?.sourcePath else {
-            detailPane.showPlaceholder("选择左侧的文件以预览内容。")
+            // Folders, links, packages and deselection collapse the pane again.
+            setDetailVisible(false)
             return
         }
         let source: EmbeddedPreviewLoader.Source
@@ -362,6 +410,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         }
         let request = UUID()
         detailGeneration = request
+        setDetailVisible(true)
         detailPane.showLoading(name: node.name)
         Task { @MainActor in
             do {
@@ -761,8 +810,8 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
                                        NSTableViewDataSource, NSTableViewDelegate {
     private let titleLabel = NSTextField(labelWithString: "预览")
     private let subtitleLabel = NSTextField(labelWithString: "")
-    private let textView = NSTextView()
-    private let textScroll = NSScrollView()
+    private var textView = NSTextView()
+    private var textScroll = NSScrollView()
     private let imageView = NSImageView()
     private let imageScroll = NSScrollView()
     private let tableView = NSTableView()
@@ -788,36 +837,46 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         subtitleLabel.textColor = .secondaryLabelColor
         subtitleLabel.lineBreakMode = .byTruncatingTail
 
+        // `NSTextView.scrollableTextView()` returns a text view already configured to wrap at the
+        // clip view width. Hand-rolled setup left the text container wider than the visible area,
+        // so long lines were laid out where they could not be seen.
+        let scrolledText = NSTextView.scrollableTextView()
+        if let configured = scrolledText.documentView as? NSTextView {
+            textView = configured
+            textScroll = scrolledText
+        }
         textView.isEditable = false
         textView.isSelectable = true
         textView.isRichText = true
-        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         textView.textContainerInset = NSSize(width: 10, height: 10)
         textView.backgroundColor = .textBackgroundColor
-        prepare(textScroll, document: textView)
+        textView.isHorizontallyResizable = false
+        textView.textContainer?.widthTracksTextView = true
+        prepare(textScroll, document: textView, tracksWidth: true, horizontalScroller: false)
 
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.imageAlignment = .alignCenter
-        prepare(imageScroll, document: imageView)
+        prepare(imageScroll, document: imageView, tracksWidth: false)
         imageScroll.backgroundColor = .white
         imageScroll.drawsBackground = true
 
         tableView.dataSource = self
         tableView.delegate = self
         tableView.headerView = NSTableHeaderView()
-        tableView.rowHeight = 24
+        tableView.rowHeight = 30
         tableView.usesAlternatingRowBackgroundColors = true
-        prepare(tableScroll, document: tableView)
+        prepare(tableScroll, document: tableView, tracksWidth: true)
 
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.headerView = NSTableHeaderView()
-        outlineView.rowHeight = 24
+        outlineView.rowHeight = 30
         outlineView.indentationPerLevel = 14
-        prepare(outlineScroll, document: outlineView)
+        prepare(outlineScroll, document: outlineView, tracksWidth: true)
 
         messageLabel.alignment = .center
-        messageLabel.font = .systemFont(ofSize: 12)
+        messageLabel.font = .systemFont(ofSize: 13)
         messageLabel.textColor = .secondaryLabelColor
         messageLabel.isHidden = true
 
@@ -829,6 +888,13 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             child.translatesAutoresizingMaskIntoConstraints = false
             addSubview(child)
         }
+        // The header must not absorb the pane's vertical slack. With only top constraints the
+        // labels and the separator are free to stretch, which squeezes the content area down to a
+        // few points (observed: a 488 pt pane leaving the text view 30 pt, then 2 pt).
+        for header in [titleLabel, subtitleLabel, divider] {
+            header.setContentHuggingPriority(.required, for: .vertical)
+            header.setContentCompressionResistancePriority(.required, for: .vertical)
+        }
         var constraints: [NSLayoutConstraint] = [
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
@@ -839,11 +905,15 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             divider.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             divider.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
             divider.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
+            divider.heightAnchor.constraint(equalToConstant: 1),
             messageLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             messageLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             messageLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40)
         ]
         for scroll in [textScroll, imageScroll, tableScroll, outlineScroll] {
+            // The content area is what should grow and shrink with the pane.
+            scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
+            scroll.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
             constraints.append(contentsOf: [
                 scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
                 scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
@@ -854,13 +924,16 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         NSLayoutConstraint.activate(constraints)
     }
 
-    private func prepare(_ scroll: NSScrollView, document: NSView) {
+    private func prepare(_ scroll: NSScrollView, document: NSView, tracksWidth: Bool,
+                         horizontalScroller: Bool = true) {
         // A document view is frame sized: a zero-sized one leaves the scroll view showing nothing
-        // but its border, which is how the pane looked before this was handled.
+        // but its border. NSClipView resizes it through the autoresizing mask, so a stale width
+        // would otherwise wrap text early or let rows run underneath the scroller.
         document.frame = NSRect(x: 0, y: 0, width: 320, height: 320)
+        document.autoresizingMask = tracksWidth ? [.width] : []
         scroll.documentView = document
         scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = true
+        scroll.hasHorizontalScroller = horizontalScroller
         scroll.autohidesScrollers = true
         scroll.borderType = .lineBorder
         scroll.wantsLayer = true
@@ -871,13 +944,47 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
 
     override func layout() {
         super.layout()
-        // Keep frame-sized documents matched to the clip view. Height is left to AppKit so table
-        // and outline views can still grow to fit their rows.
-        let scrolled: [(NSScrollView, NSView)] = [(textScroll, textView), (tableScroll, tableView),
-                                                  (outlineScroll, outlineView)]
+        syncDocumentSizes()
+    }
+
+    /// Re-matches every document view to its clip view. Also called after the pane's expand
+    /// animation, because a file can load before the pane reaches its final width.
+    func syncDocumentSizes() {
+        let textSize = textScroll.contentSize
+        if textSize.width > 1 {
+            textView.frame = NSRect(x: 0, y: 0, width: textSize.width,
+                                    height: max(textView.frame.height, textSize.height))
+        }
+        let scrolled: [(NSScrollView, NSView)] = [(tableScroll, tableView), (outlineScroll, outlineView)]
         for (scroll, document) in scrolled {
-            let width = scroll.contentSize.width
-            if width > 1 { document.frame.size.width = width }
+            let size = scroll.contentSize
+            guard size.width > 1 else { continue }
+            document.frame = NSRect(x: 0, y: 0, width: size.width,
+                                    height: max(document.frame.height, size.height))
+        }
+        if !imageScroll.isHidden, let image = imageView.image { fitImage(image) }
+        // Columns are sized in points, so a narrow pane would otherwise force the reader to scroll
+        // sideways through cramped columns.
+        fitColumns(of: tableView, in: tableScroll)
+        fitColumns(of: outlineView, in: outlineScroll)
+    }
+
+    /// Fits a table's columns to the pane width, keeping the name column dominant.
+    private func fitColumns(of table: NSTableView, in scroll: NSScrollView) {
+        let columns = table.tableColumns
+        guard !columns.isEmpty else { return }
+        let available = scroll.contentSize.width - 6
+        guard available > 80 else { return }
+        for (index, column) in columns.enumerated() {
+            let width: CGFloat
+            switch (columns.count, index) {
+            case (4, 0): width = floor(available * 0.44)
+            case (4, 3): width = min(150, floor(available * 0.24))
+            case (4, _): width = floor(available * 0.16)
+            default: width = floor(available / CGFloat(columns.count))
+            }
+            column.width = max(56, width)
+            column.minWidth = 44
         }
     }
 
@@ -887,16 +994,20 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         document.frame = NSRect(x: 0, y: 0, width: max(size.width, 1), height: max(size.height, 1))
     }
 
-    /// Shows an image scaled down to the pane width, never enlarged past its natural size.
-    private func showImage(_ image: NSImage) {
+    /// Scales an image down to the pane width, never enlarging it past its natural size.
+    private func fitImage(_ image: NSImage) {
         var size = image.size
         let available = imageScroll.contentSize.width
         if size.width > 0, available > 1, size.width > available {
             let scale = available / size.width
             size = NSSize(width: floor(size.width * scale), height: floor(size.height * scale))
         }
-        imageView.image = image
         imageView.frame = NSRect(origin: .zero, size: size)
+    }
+
+    private func showImage(_ image: NSImage) {
+        imageView.image = image
+        fitImage(image)
         imageScroll.isHidden = false
     }
 
@@ -1029,7 +1140,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
     private func cell(_ value: String, identifier: NSUserInterfaceItemIdentifier) -> NSView {
         let cell = NSTableCellView()
         let label = NSTextField(labelWithString: value)
-        label.font = .systemFont(ofSize: 12)
+        label.font = .systemFont(ofSize: 13)
         label.lineBreakMode = .byTruncatingMiddle
         label.translatesAutoresizingMaskIntoConstraints = false
         cell.identifier = identifier

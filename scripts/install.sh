@@ -5,11 +5,14 @@ derived="${SPACELENS_DERIVED_DATA:-${TMPDIR:-/tmp}/SpaceLens-DerivedData}"
 source_app="$derived/Build/Products/Release/SpaceLens.app"
 target="${SPACELENS_INSTALL_DIR:-/Applications}/SpaceLens.app"
 # `release-check.sh` builds into its own temporary directory, so passing it does not refresh the
-# build installed here. Warn instead of silently installing a stale bundle.
-if [[ -e "$source_app" ]]; then
-    stale=$(find Sources Config -type f -newer "$source_app" -print -quit)
+# build installed here. Warn instead of silently installing a stale bundle. Compare against the
+# extension binary: the .app directory's mtime is not updated by incremental builds, so comparing
+# against it reports a false positive.
+built_binary="$source_app/Contents/PlugIns/SpaceLensPreview.appex/Contents/MacOS/SpaceLensPreview"
+if [[ -e "$built_binary" ]]; then
+    stale=$(find Sources Config -type f -newer "$built_binary" -print -quit)
     if [[ -n "$stale" ]]; then
-        echo "Warning: $source_app is older than $stale; run ./scripts/build.sh first." >&2
+        echo "Warning: the built extension is older than $stale; run ./scripts/build.sh first." >&2
     fi
 fi
 codesign --verify --strict "$source_app/Contents/PlugIns/SpaceLensPreview.appex"
