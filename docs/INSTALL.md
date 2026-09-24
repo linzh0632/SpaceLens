@@ -1,6 +1,6 @@
 # SpaceLens 本机安装与验收
 
-当前为 M4E（0.4.4），支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、代码、配置、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、扩展文档、Jupyter Notebook、Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
+当前为 M4F（0.4.6），支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、扩展代码与配置格式、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、扩展文档、Jupyter Notebook、Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
 
 ## 构建与安装
 
@@ -31,9 +31,10 @@
 9. 选择 MDX、QMD、RMD、RST、AsciiDoc 或 TeX，应显示标题、正文和代码块；选择 IPYNB，应显示 Markdown、代码与文件内已有的文本输出。SpaceLens 不运行 Notebook 单元格。
 10. 选择 `.mermaid`/`.mmd`、`.puml`/`.plantuml` 或 `.drawio`，应显示 SpaceLens 的本地图表画布。支持 Mermaid 流程图与时序图、PlantUML 基础关系与时序图，以及压缩或未压缩 Draw.io XML。
 11. 选择 `.parquet`，应显示字段 schema、行数、行组和文件元信息；选择 `.arrow`/`.feather` 或 `.avro`，应显示字段和前 100 行数据。复杂或压缩 Arrow 列显示 schema。
-12. 若没有出现，打开系统设置，查找“登录项与扩展”中的 Quick Look，启用 SpaceLens。不同系统版本的入口可能不同。
+12. 选择 `.zig`、`.f90`、`.proto`、`.tfvars`、`.sv` 或 Makefile，应显示 SpaceLens 代码预览和对应语言名称。README、LICENSE、CMakeLists.txt 可能继续由系统原生文本预览处理。
+13. 若没有出现，打开系统设置，查找“登录项与扩展”中的 Quick Look，启用 SpaceLens。不同系统版本的入口可能不同。
 
-本机已有 Looq。若同类文件被它接管，需要在系统设置中选择预览扩展。SpaceLens 不会自动关闭其他应用的扩展，也不会注册图片、PDF、音视频等通用类型。
+本机已有 Looq。若同类文件被它接管，需要在系统设置中选择预览扩展。SpaceLens 不会自动关闭其他应用的扩展，也不会注册图片、PDF、音视频等通用类型。 SpaceLens 主应用不声明任何可打开文档类型，只提供 Quick Look 预览；双击文件仍交给系统或用户选择的编辑器。
 
 ## 更新
 
@@ -69,6 +70,8 @@ pluginkit -r /Applications/SpaceLens.app/Contents/PlugIns/SpaceLensPreview.appex
 - [x] MDX/QMD/RMD/RST/REST/ADOC/ASCIIDOC/TeX/IPYNB 预览（用户确认全部正常）
 - [x] Mermaid/MMD、PlantUML/PUML 与压缩/未压缩 Draw.io 预览（用户确认全部正常）
 - [x] Parquet、Arrow、Feather、Avro 预览（用户确认全部正常）
+- [x] 92 个文件及文件夹样例的默认打开应用审计（SpaceLens 未接管任何双击打开操作）
+- [x] Zig、Fortran、Protocol Buffers、Terraform、SystemVerilog 与 Makefile 预览（用户确认全部正常）
 - [ ] 整机重启后再预览（未重启用户电脑）
 - [ ] 其他 macOS 版本及 Intel 实机（尚未验证）
 

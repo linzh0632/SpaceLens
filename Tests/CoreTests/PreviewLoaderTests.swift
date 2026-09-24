@@ -456,6 +456,69 @@ final class PreviewLoaderTests: XCTestCase {
         do { _ = try await task.value; XCTFail("Expected cancellation") }
         catch { XCTAssertTrue(error is CancellationError) }
     }
+    func testOfficialCodeAndConfigCoverage() throws {
+        let names = [
+            "sample.asm", "sample.awk", "sample.bat", "build.bazel", "workspace.bazel", "build", "sample.bzl",
+            "CMakeLists.txt", "sample.cmake", "sample.cmd", "sample.coffee", "sample.cr", "sample.d", "sample.diff",
+            "Dockerfile", "sample.env", "sample.f", "sample.f03", "sample.f08", "sample.f90", "sample.f95",
+            "sample.for", "sample.gd", "sample.gql", "sample.gradle", "sample.graphql", "sample.groovy",
+            "sample.hcl", "sample.hs", "sample.ini", "sample.jl", "sample.lhs", "LICENSE", "sample.litcoffee",
+            "sample.log", "Makefile", "sample.ml", "sample.mli", "sample.nim", "sample.nu", "sample.patch",
+            "sample.proto", "sample.py", "sample.raku", "sample.rakumod", "sample.rakutest", "README", "sample.rkt",
+            "sample.s", "sample.scm", "sample.sol", "sample.sql", "sample.ss", "sample.star", "sample.sv",
+            "sample.svh", "sample.swift", "sample.tcl", "sample.tf", "sample.tfvars", "sample.toml", "sample.ts",
+            "sample.v", "sample.vh", "workspace", "sample.xml", "sample.xsd", "sample.xsl", "sample.xslt",
+            "sample.yaml", "sample.yml", "sample.zig"
+        ]
+        XCTAssertEqual(names.count, 72)
+        var languages: [String: String] = [:]
+        for name in names {
+            let snapshot = try PreviewLoader.load(write(name, Data("value = 42\n".utf8)))
+            XCTAssertEqual(snapshot.contentKind, .code, name)
+            languages[name] = snapshot.language
+        }
+        XCTAssertEqual(languages["CMakeLists.txt"], "CMake")
+        XCTAssertEqual(languages["build"], "Bazel")
+        XCTAssertEqual(languages["sample.f90"], "Fortran")
+        XCTAssertEqual(languages["sample.proto"], "Protocol Buffers")
+        XCTAssertEqual(languages["sample.sv"], "SystemVerilog")
+        XCTAssertEqual(languages["sample.tfvars"], "Terraform")
+        XCTAssertEqual(languages["sample.zig"], "Zig")
+    }
+
+    func testHostAppIsPreviewOnlyAndCustomKindsAreNeutral() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let appData = try Data(contentsOf: root.appendingPathComponent("Config/App-Info.plist"))
+        let appInfo = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: appData, format: nil) as? [String: Any]
+        )
+
+        XCTAssertNil(appInfo["CFBundleDocumentTypes"], "The host app must never register as a document opener")
+
+        let exported = try XCTUnwrap(appInfo["UTExportedTypeDeclarations"] as? [[String: Any]])
+        XCTAssertEqual(exported.compactMap { $0["UTTypeIdentifier"] as? String }, ["io.github.linzh0632.spacelens.sample"])
+
+        let imported = try XCTUnwrap(appInfo["UTImportedTypeDeclarations"] as? [[String: Any]])
+        XCTAssertFalse(imported.isEmpty)
+        for declaration in imported {
+            let description = try XCTUnwrap(declaration["UTTypeDescription"] as? String)
+            XCTAssertFalse(description.localizedCaseInsensitiveContains("SpaceLens"), description)
+        }
+
+        let previewData = try Data(contentsOf: root.appendingPathComponent("Config/Preview-Info.plist"))
+        let previewInfo = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: previewData, format: nil) as? [String: Any]
+        )
+        let extensionInfo = try XCTUnwrap(previewInfo["NSExtension"] as? [String: Any])
+        let attributes = try XCTUnwrap(extensionInfo["NSExtensionAttributes"] as? [String: Any])
+        let supported = Set(try XCTUnwrap(attributes["QLSupportedContentTypes"] as? [String]))
+        let declared = Set((exported + imported).compactMap { $0["UTTypeIdentifier"] as? String })
+        XCTAssertTrue(declared.isSubset(of: supported), "Every custom type must remain available to Quick Look")
+    }
+
 }
 
 private struct ZipEntry {
