@@ -36,9 +36,13 @@ enum ImagePreview {
         guard width > 0, height > 0 else {
             throw PreviewFailure.damagedData("无法读取图片尺寸。")
         }
+        guard width <= maximumPixelDimension, height <= maximumPixelDimension else {
+            throw PreviewFailure.unsupportedData(
+                "图片尺寸 \(width)×\(height) 超过安全上限（最长边 \(maximumPixelDimension) px、共 \(maximumPixelCount / 1_000_000) 百万像素）。")
+        }
+        // Check each dimension before multiplying so hostile metadata cannot overflow Int64.
         let pixels = Int64(width) * Int64(height)
-        guard width <= maximumPixelDimension, height <= maximumPixelDimension,
-              pixels <= maximumPixelCount else {
+        guard pixels <= maximumPixelCount else {
             throw PreviewFailure.unsupportedData(
                 "图片尺寸 \(width)×\(height) 超过安全上限（最长边 \(maximumPixelDimension) px、共 \(maximumPixelCount / 1_000_000) 百万像素）。")
         }

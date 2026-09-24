@@ -38,23 +38,29 @@ public enum EmbeddedPreviewLoader {
         }
         // Built from the raw path rather than `appendingPathComponent` so file names containing
         // "%" or "#" are not percent-encoded twice.
-        let child = URL(fileURLWithPath: root.path + "/" + relativePath)
-        let resolvedRoot = root.standardizedFileURL.path
-        let resolvedChild = child.standardizedFileURL.path
-        guard resolvedChild.hasPrefix(resolvedRoot + "/") else {
+        var child = root
+        for component in components {
+            child = URL(fileURLWithPath: child.path + "/" + String(component))
+            let componentValues = try child.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard componentValues.isSymbolicLink != true else {
+                throw PreviewFailure.unsupportedData("链接不会被读取，已拒绝预览。")
+            }
+        }
+        // Resolve every component again before checking containment to defend against a path being
+        // replaced after the listing was created.
+        let resolvedRoot = root.standardizedFileURL.resolvingSymlinksInPath()
+        let resolvedChild = child.standardizedFileURL.resolvingSymlinksInPath()
+        guard resolvedChild.path.hasPrefix(resolvedRoot.path + "/") else {
             throw PreviewFailure.unsupportedData("条目路径超出容器范围，已拒绝预览。")
         }
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
                                         .isDirectoryKey, .isPackageKey]
-        let values = try child.resourceValues(forKeys: keys)
-        guard values.isSymbolicLink != true else {
-            throw PreviewFailure.unsupportedData("链接不会被读取，已拒绝预览。")
-        }
+        let values = try resolvedChild.resourceValues(forKeys: keys)
         guard values.isRegularFile == true else {
             throw PreviewFailure.unsupportedData(
                 values.isDirectory == true ? "这是一个文件夹，请展开它而不是预览内容。" : "这不是一个普通文件。")
         }
-        return try PreviewLoader.load(child)
+        return try PreviewLoader.load(resolvedChild)
     }
 
     // MARK: - Archive entries

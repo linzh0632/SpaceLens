@@ -2,6 +2,15 @@ import AppKit
 import QuickLookUI
 import OSLog
 
+@MainActor
+private final class InvisibleDividerSplitView: NSSplitView {
+    override var dividerColor: NSColor { .clear }
+
+    override func drawDivider(in rect: NSRect) {
+        // Keep the draggable divider geometry while leaving the two preview panes visually seamless.
+    }
+}
+
 final class PreviewViewController: NSViewController, QLPreviewingController,
                                    NSOutlineViewDataSource, NSOutlineViewDelegate,
                                    NSTableViewDataSource, NSTableViewDelegate,
@@ -10,15 +19,15 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private let heading = NSTextField(labelWithString: "SpaceLens")
     private let detail = NSTextField(labelWithString: "正在读取…")
     private let outline = NSOutlineView()
-    private let tableScroll = NSScrollView()
-    private let split = NSSplitView()
+    private let tableScroll = ReservedScrollerScrollView()
+    private let split = InvisibleDividerSplitView()
     private let detailPane = DetailPreviewPane(frame: .zero)
     private let text = NSTextView()
-    private let textScroll = NSScrollView()
+    private let textScroll = ReservedScrollerScrollView()
     private let dataTable = NSTableView()
-    private let dataScroll = NSScrollView()
+    private let dataScroll = ReservedScrollerScrollView()
     private let diagramImage = NSImageView()
-    private let diagramScroll = NSScrollView()
+    private let diagramScroll = ReservedScrollerScrollView()
     private let emptyState = NSTextField(wrappingLabelWithString: "")
     private let logger = Logger(subsystem: "io.github.linzh0632.SpaceLens", category: "preview")
     private var roots: [PreviewNode] = []
@@ -27,6 +36,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private var previewedURL: URL?
     private var containerKind: PreviewSnapshot.ContentKind?
     private var detailGeneration = UUID()
+    private var detailTask: Task<Void, Never>?
     private var pendingDetailPosition = false
 
     override func loadView() {
@@ -47,6 +57,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         configureTextView()
         configureDataTable()
         configureDiagram()
+        detailPane.onClose = { [weak self] in self?.closeDetailPreview() }
         emptyState.alignment = .center
         emptyState.font = .systemFont(ofSize: 15)
         emptyState.textColor = .secondaryLabelColor
@@ -120,6 +131,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
     /// The pane stays collapsed until a previewable entry is selected, so the tree keeps the full
     /// window width the rest of the time.
+    private func closeDetailPreview() {
+        cancelDetailLoad()
+        outline.deselectAll(nil)
+        setDetailVisible(false)
+    }
+
     private func setDetailVisible(_ visible: Bool) {
         if visible {
             if detailPane.isHidden {
@@ -205,9 +222,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         outline.outlineTableColumn = name
 
         tableScroll.documentView = outline
-        tableScroll.hasVerticalScroller = true
-        tableScroll.hasHorizontalScroller = true
-        tableScroll.autohidesScrollers = true
+        configureReservedScrollers(tableScroll, horizontal: true)
         tableScroll.borderType = .lineBorder
         tableScroll.wantsLayer = true
         tableScroll.layer?.cornerRadius = 10
@@ -222,8 +237,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         text.textContainerInset = NSSize(width: 14, height: 14)
         text.backgroundColor = .textBackgroundColor
         textScroll.documentView = text
-        textScroll.hasVerticalScroller = true
-        textScroll.autohidesScrollers = true
+        configureReservedScrollers(textScroll, horizontal: false)
         textScroll.borderType = .lineBorder
         textScroll.wantsLayer = true
         textScroll.layer?.cornerRadius = 10
@@ -239,9 +253,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         dataTable.usesAlternatingRowBackgroundColors = true
         dataTable.gridStyleMask = [.solidVerticalGridLineMask]
         dataScroll.documentView = dataTable
-        dataScroll.hasVerticalScroller = true
-        dataScroll.hasHorizontalScroller = true
-        dataScroll.autohidesScrollers = true
+        configureReservedScrollers(dataScroll, horizontal: true)
         dataScroll.borderType = .lineBorder
         dataScroll.wantsLayer = true
         dataScroll.layer?.cornerRadius = 10
@@ -253,9 +265,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         diagramImage.imageScaling = .scaleProportionallyUpOrDown
         diagramImage.imageAlignment = .alignCenter
         diagramScroll.documentView = diagramImage
-        diagramScroll.hasVerticalScroller = true
-        diagramScroll.hasHorizontalScroller = true
-        diagramScroll.autohidesScrollers = true
+        configureReservedScrollers(diagramScroll, horizontal: true)
         diagramScroll.borderType = .lineBorder
         diagramScroll.backgroundColor = .white
         diagramScroll.drawsBackground = true
@@ -287,6 +297,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     }
 
     private func showLoading() {
+        cancelDetailLoad()
         detail.stringValue = "SpaceLens · 正在读取…"
         fileIcon.image = NSImage(systemSymbolName: "doc", accessibilityDescription: nil)
         roots = []
@@ -392,6 +403,9 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     /// Loads the clicked entry into the right-hand pane. Only plain files are previewable; folder
     /// rows keep their expand/collapse behaviour and links are never followed.
     func outlineViewSelectionDidChange(_ notification: Notification) {
+        // Cancel actual I/O and decoding work, not only its eventual UI update. Rapid keyboard
+        // navigation can otherwise leave many archive or image loads running concurrently.
+        cancelDetailLoad()
         guard let kind = containerKind, let root = previewedURL else { return }
         let selected = outline.selectedRow
         guard selected >= 0,
@@ -412,21 +426,32 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         detailGeneration = request
         setDetailVisible(true)
         detailPane.showLoading(name: node.name)
-        Task { @MainActor in
+        let worker = Task.detached(priority: .userInitiated) {
+            try EmbeddedPreviewLoader.load(source)
+        }
+        detailTask = Task { @MainActor [weak self] in
             do {
-                let snapshot = try await Task.detached(priority: .userInitiated) {
-                    try EmbeddedPreviewLoader.load(source)
-                }.value
-                guard self.detailGeneration == request else { return }
+                let snapshot = try await withTaskCancellationHandler(operation: {
+                    try await worker.value
+                }, onCancel: {
+                    worker.cancel()
+                })
+                guard let self, self.detailGeneration == request else { return }
                 self.detailPane.show(snapshot)
                 self.logger.notice("SpaceLens detail preview rendered; kind=\(String(describing: snapshot.contentKind), privacy: .public)")
             } catch {
-                guard self.detailGeneration == request else { return }
+                guard let self, self.detailGeneration == request else { return }
                 if error is CancellationError { return }
                 self.detailPane.showError(name: node.name, message: error.localizedDescription)
                 self.logger.error("SpaceLens detail preview failed: \(error.localizedDescription, privacy: .private)")
             }
         }
+    }
+
+    private func cancelDetailLoad() {
+        detailGeneration = UUID()
+        detailTask?.cancel()
+        detailTask = nil
     }
 
     private func configureOutlineColumns(name: String, kind: String, value: String,
@@ -707,6 +732,99 @@ private final class NameCell: NSTableCellView {
     }
 }
 
+/// Paints the entire reserved track so document rows and columns can never remain visible
+/// through macOS translucent scrollbar chrome.
+@MainActor
+private final class ReservedGutterScroller: NSScroller {
+    override var isOpaque: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlBackgroundColor.setFill()
+        bounds.fill()
+        let pixel = 1 / max(window?.backingScaleFactor ?? 2, 1)
+        NSColor.separatorColor.setFill()
+        if bounds.height >= bounds.width {
+            NSRect(x: bounds.minX, y: bounds.minY, width: pixel, height: bounds.height).fill()
+        } else {
+            NSRect(x: bounds.minX, y: bounds.maxY - pixel, width: bounds.width, height: pixel).fill()
+        }
+        super.draw(dirtyRect)
+    }
+}
+
+@MainActor
+private final class ReservedGutterCornerView: NSView {
+    override var isOpaque: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.controlBackgroundColor.setFill()
+        bounds.fill()
+        let pixel = 1 / max(window?.backingScaleFactor ?? 2, 1)
+        NSColor.separatorColor.setFill()
+        NSRect(x: bounds.minX, y: bounds.minY, width: pixel, height: bounds.height).fill()
+        NSRect(x: bounds.minX, y: bounds.maxY - pixel, width: bounds.width, height: pixel).fill()
+    }
+}
+
+/// Quick Look may reapply the system overlay style after a preview is attached to its window.
+/// Refuse that late change so AppKit tiles the clip view beside dedicated legacy scrollbar gutters.
+@MainActor
+private final class ReservedScrollerScrollView: NSScrollView {
+    private let gutterCorner = ReservedGutterCornerView(frame: .zero)
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        addSubview(gutterCorner, positioned: .above, relativeTo: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        addSubview(gutterCorner, positioned: .above, relativeTo: nil)
+    }
+
+    override var scrollerStyle: NSScroller.Style {
+        get { .legacy }
+        set { super.scrollerStyle = .legacy }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        super.scrollerStyle = .legacy
+        autohidesScrollers = false
+        tile()
+    }
+
+    override func tile() {
+        super.tile()
+        guard hasVerticalScroller, hasHorizontalScroller,
+              let verticalScroller, let horizontalScroller else {
+            gutterCorner.isHidden = true
+            return
+        }
+        gutterCorner.isHidden = false
+        gutterCorner.frame = NSRect(
+            x: verticalScroller.frame.minX,
+            y: horizontalScroller.frame.minY,
+            width: verticalScroller.frame.width,
+            height: horizontalScroller.frame.height)
+    }
+}
+
+/// Keeps scrollbars in dedicated gutters so preview content ends before the vertical and
+/// horizontal scrollbar regions.
+@MainActor
+private func configureReservedScrollers(_ scrollView: NSScrollView, horizontal: Bool) {
+    scrollView.verticalScroller = ReservedGutterScroller()
+    if horizontal { scrollView.horizontalScroller = ReservedGutterScroller() }
+    scrollView.hasVerticalScroller = true
+    scrollView.hasHorizontalScroller = horizontal
+    scrollView.scrollerStyle = .legacy
+    scrollView.autohidesScrollers = false
+    scrollView.scrollerKnobStyle = .default
+    scrollView.verticalScrollElasticity = .automatic
+    scrollView.horizontalScrollElasticity = horizontal ? .automatic : .none
+}
+
 private extension NSUserInterfaceItemIdentifier {
     static let nameColumn = Self("name")
     static let kindColumn = Self("kind")
@@ -808,16 +926,19 @@ private extension Int {
 /// already-loaded snapshot, so all reading limits stay in `EmbeddedPreviewLoader`.
 private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
                                        NSTableViewDataSource, NSTableViewDelegate {
+    var onClose: (() -> Void)?
+
     private let titleLabel = NSTextField(labelWithString: "预览")
     private let subtitleLabel = NSTextField(labelWithString: "")
+    private let closeButton = NSButton()
     private var textView = NSTextView()
-    private var textScroll = NSScrollView()
+    private var textScroll = ReservedScrollerScrollView()
     private let imageView = NSImageView()
-    private let imageScroll = NSScrollView()
+    private let imageScroll = ReservedScrollerScrollView()
     private let tableView = NSTableView()
-    private let tableScroll = NSScrollView()
+    private let tableScroll = ReservedScrollerScrollView()
     private let outlineView = NSOutlineView()
-    private let outlineScroll = NSScrollView()
+    private let outlineScroll = ReservedScrollerScrollView()
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private var tableData: PreviewSnapshot.TableData?
     private var outlineRoots: [PreviewNode] = []
@@ -836,15 +957,24 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         subtitleLabel.font = .systemFont(ofSize: 11)
         subtitleLabel.textColor = .secondaryLabelColor
         subtitleLabel.lineBreakMode = .byTruncatingTail
+        closeButton.title = "关闭"
+        closeButton.bezelStyle = .rounded
+        closeButton.controlSize = .small
+        closeButton.font = .systemFont(ofSize: 12, weight: .medium)
+        closeButton.isBordered = true
+        closeButton.toolTip = "关闭右侧预览"
+        closeButton.setAccessibilityLabel("关闭右侧预览")
+        closeButton.target = self
+        closeButton.action = #selector(closeButtonPressed)
 
-        // `NSTextView.scrollableTextView()` returns a text view already configured to wrap at the
-        // clip view width. Hand-rolled setup left the text container wider than the visible area,
-        // so long lines were laid out where they could not be seen.
-        let scrolledText = NSTextView.scrollableTextView()
-        if let configured = scrolledText.documentView as? NSTextView {
-            textView = configured
-            textScroll = scrolledText
-        }
+        // Keep the text document width tied to the dedicated clip area, which excludes the
+        // reserved scrollbar gutter.
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.containerSize = NSSize(
+            width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
         textView.isEditable = false
         textView.isSelectable = true
         textView.isRichText = true
@@ -883,7 +1013,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         let divider = NSBox()
         divider.boxType = .separator
 
-        for child in [titleLabel, subtitleLabel, divider, textScroll, imageScroll,
+        for child in [titleLabel, subtitleLabel, closeButton, divider, textScroll, imageScroll,
                       tableScroll, outlineScroll, messageLabel] {
             child.translatesAutoresizingMaskIntoConstraints = false
             addSubview(child)
@@ -897,8 +1027,12 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         }
         var constraints: [NSLayoutConstraint] = [
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            titleLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            closeButton.widthAnchor.constraint(equalToConstant: 60),
+            closeButton.heightAnchor.constraint(equalToConstant: 26),
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
@@ -918,10 +1052,14 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
                 scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
                 scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
                 scroll.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10),
-                scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
+                scroll.bottomAnchor.constraint(equalTo: bottomAnchor)
             ])
         }
         NSLayoutConstraint.activate(constraints)
+    }
+
+    @objc private func closeButtonPressed() {
+        onClose?()
     }
 
     private func prepare(_ scroll: NSScrollView, document: NSView, tracksWidth: Bool,
@@ -932,9 +1070,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         document.frame = NSRect(x: 0, y: 0, width: 320, height: 320)
         document.autoresizingMask = tracksWidth ? [.width] : []
         scroll.documentView = document
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = horizontalScroller
-        scroll.autohidesScrollers = true
+        configureReservedScrollers(scroll, horizontal: horizontalScroller)
         scroll.borderType = .lineBorder
         scroll.wantsLayer = true
         scroll.layer?.cornerRadius = 8

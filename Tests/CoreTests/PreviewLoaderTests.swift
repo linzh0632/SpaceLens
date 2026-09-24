@@ -540,6 +540,7 @@ final class PreviewLoaderTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("安全上限"))
         }
         XCTAssertThrowsError(try ImagePreview.validate(width: 12_000, height: 12_000))
+        XCTAssertThrowsError(try ImagePreview.validate(width: Int.max, height: Int.max))
         XCTAssertThrowsError(try ImagePreview.validate(width: 0, height: 100))
     }
 
@@ -579,6 +580,17 @@ final class PreviewLoaderTests: XCTestCase {
             .directoryChild(root: directory, relativePath: "link.txt")))
         XCTAssertThrowsError(try EmbeddedPreviewLoader.load(
             .directoryChild(root: directory, relativePath: "sub")))
+
+        let outside = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        try Data("outside".utf8).write(to: outside.appendingPathComponent("secret.txt"))
+        try FileManager.default.createSymbolicLink(
+            at: directory.appendingPathComponent("bridge"), withDestinationURL: outside)
+        XCTAssertThrowsError(try EmbeddedPreviewLoader.load(
+            .directoryChild(root: directory, relativePath: "bridge/secret.txt"))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("链接"))
+        }
     }
 
     func testEmbeddedArchiveEntryExtractsRealContent() throws {
