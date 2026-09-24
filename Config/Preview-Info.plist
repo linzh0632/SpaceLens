@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.0</string>
+	<string>0.4.1</string>
 	<key>CFBundleVersion</key>
-	<string>6</string>
+	<string>7</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -74,6 +74,12 @@
 				<string>org.gnu.gnu-zip-archive</string>
 				<string>public.bzip2-archive</string>
 				<string>org.tukaani.xz-archive</string>
+				<string>io.github.linzh0632.spacelens.sqlite</string>
+				<string>com.apple.property-list</string>
+				<string>com.apple.xml-property-list</string>
+				<string>com.apple.binary-property-list</string>
+				<string>org.sqlite.sqlite3</string>
+				<string>org.sqlite.database</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
