@@ -12,6 +12,7 @@ public struct PreviewSnapshot: Sendable {
         case directory
         case zip
         case archive
+        case image
     }
 
     public struct TableData: Sendable, Equatable {
@@ -50,6 +51,9 @@ public struct PreviewSnapshot: Sendable {
         }
 
         public let path: String
+        /// Locates the entry inside its container (folder or archive). Unlike `path` it is not
+        /// display-escaped, so it can resolve the real child URL or the archive entry name.
+        public let sourcePath: String?
         public let kind: Kind
         public let size: Int64?
         public let compressedSize: Int64?
@@ -57,10 +61,11 @@ public struct PreviewSnapshot: Sendable {
         public let compression: String?
         public let warnings: [String]
 
-        public init(path: String, kind: Kind, size: Int64? = nil,
+        public init(path: String, sourcePath: String? = nil, kind: Kind, size: Int64? = nil,
                     compressedSize: Int64? = nil, modificationDate: Date? = nil,
                     compression: String? = nil, warnings: [String] = []) {
             self.path = path
+            self.sourcePath = sourcePath
             self.kind = kind
             self.size = size
             self.compressedSize = compressedSize
@@ -80,11 +85,15 @@ public struct PreviewSnapshot: Sendable {
     public let structuredItems: [StructuredItem]
     public let language: String?
     public let diagramSVG: String?
+    /// PNG-encoded thumbnail for `.image` snapshots. Kept as `Data` so the snapshot remains
+    /// `Sendable` and no `CGImage` crosses a concurrency domain.
+    public let imagePNGData: Data?
 
     public init(title: String, summary: String, body: String, truncated: Bool,
                 contentKind: ContentKind = .text, items: [Item] = [],
                 table: TableData? = nil, structuredItems: [StructuredItem] = [],
-                language: String? = nil, diagramSVG: String? = nil) {
+                language: String? = nil, diagramSVG: String? = nil,
+                imagePNGData: Data? = nil) {
         self.title = title
         self.summary = summary
         self.body = body
@@ -95,6 +104,7 @@ public struct PreviewSnapshot: Sendable {
         self.structuredItems = structuredItems
         self.language = language
         self.diagramSVG = diagramSVG
+        self.imagePNGData = imagePNGData
     }
 }
 
@@ -152,6 +162,8 @@ public enum PreviewLoader {
         case let ext where ColumnarPreview.extensions.contains(ext): return try ColumnarPreview.load(url)
         case let ext where ArchivePreview.extensions.contains(ext):
             return try ArchivePreview.load(url, entryLimit: entryLimit)
+        case let ext where ImagePreview.extensions.contains(ext):
+            return try ImagePreview.load(url)
         default: return try CommonTextPreview.load(url, byteLimit: maximumTextBytes)
         }
     }
@@ -180,6 +192,7 @@ public enum PreviewLoader {
 private enum DirectoryPreview {
     struct Row {
         let path: String
+        let sourcePath: String
         let depth: Int
         let kind: String
         let size: Int64?
@@ -231,7 +244,7 @@ private enum DirectoryPreview {
                 kind = "文件"; size = metadata.fileSize.map(Int64.init)
                 totalBytes += size ?? 0; fileCount += 1
             }
-            rows.append(Row(path: escape(relative), depth: depth, kind: kind,
+            rows.append(Row(path: escape(relative), sourcePath: relative, depth: depth, kind: kind,
                 size: size, date: metadata.contentModificationDate))
         }
         if let error = enumerationError { throw error }
@@ -242,8 +255,8 @@ private enum DirectoryPreview {
         if truncatedByDepth { limits.append("最多 \(depthLimit) 层") }
         let suffix = limits.isEmpty ? "" : " · 已限制：" + limits.joined(separator: "、")
         let items = rows.map { row in
-            PreviewSnapshot.Item(path: row.path, kind: itemKind(row.kind), size: row.size,
-                                 modificationDate: row.date)
+            PreviewSnapshot.Item(path: row.path, sourcePath: row.sourcePath, kind: itemKind(row.kind),
+                                 size: row.size, modificationDate: row.date)
         }
         return PreviewSnapshot(title: url.lastPathComponent,
             summary: "SpaceLens · 文件夹 · \(folderCount) 个文件夹 · \(fileCount) 个文件 · \(formatBytes(totalBytes))\(suffix)",

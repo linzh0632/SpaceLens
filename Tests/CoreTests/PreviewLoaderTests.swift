@@ -1,4 +1,7 @@
 import XCTest
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 @testable import SpaceLensCore
 
 final class PreviewLoaderTests: XCTestCase {
@@ -519,6 +522,141 @@ final class PreviewLoaderTests: XCTestCase {
         XCTAssertTrue(declared.isSubset(of: supported), "Every custom type must remain available to Quick Look")
     }
 
+    // MARK: - M7 container entry preview
+
+    func testImagePreviewProducesBoundedThumbnail() throws {
+        let url = try write("photo.png", try makePNGData(width: 300, height: 200))
+        let result = try PreviewLoader.load(url)
+        XCTAssertEqual(result.contentKind, .image)
+        XCTAssertEqual(result.title, "photo.png")
+        XCTAssertTrue(result.summary.contains("300×200"))
+        let thumbnail = try XCTUnwrap(result.imagePNGData)
+        XCTAssertLessThan(thumbnail.count, 256 * 1024)
+    }
+
+    func testImageDimensionGuardRejectsOversizedDeclarations() throws {
+        XCTAssertNoThrow(try ImagePreview.validate(width: 4_000, height: 3_000))
+        XCTAssertThrowsError(try ImagePreview.validate(width: 20_000, height: 20_000)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("安全上限"))
+        }
+        XCTAssertThrowsError(try ImagePreview.validate(width: 12_000, height: 12_000))
+        XCTAssertThrowsError(try ImagePreview.validate(width: 0, height: 100))
+    }
+
+    func testImagePreviewRejectsOversizedFileAndCorruptData() throws {
+        let huge = directory.appendingPathComponent("huge.png")
+        XCTAssertTrue(FileManager.default.createFile(atPath: huge.path, contents: nil))
+        let handle = try FileHandle(forWritingTo: huge)
+        try handle.truncate(atOffset: 65 * 1024 * 1024)
+        try handle.close()
+        XCTAssertThrowsError(try PreviewLoader.load(huge)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("上限"))
+        }
+        XCTAssertThrowsError(try PreviewLoader.load(write("broken.png", Data("not an image".utf8))))
+    }
+
+    func testEmbeddedDirectoryChildLoadsContent() throws {
+        let nested = directory.appendingPathComponent("nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        _ = try write("nested/child.md", Data("# title\n".utf8))
+        let result = try EmbeddedPreviewLoader.load(
+            .directoryChild(root: directory, relativePath: "nested/child.md"))
+        XCTAssertEqual(result.contentKind, .markdown)
+        XCTAssertEqual(result.title, "child.md")
+        XCTAssertEqual(result.body, "# title\n")
+    }
+
+    func testEmbeddedDirectoryChildRejectsEscapesLinksAndFolders() throws {
+        _ = try write("plain.txt", Data("x".utf8))
+        try FileManager.default.createSymbolicLink(
+            at: directory.appendingPathComponent("link.txt"),
+            withDestinationURL: directory.appendingPathComponent("plain.txt"))
+        try FileManager.default.createDirectory(
+            at: directory.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        XCTAssertThrowsError(try EmbeddedPreviewLoader.load(
+            .directoryChild(root: directory, relativePath: "../escape.txt")))
+        XCTAssertThrowsError(try EmbeddedPreviewLoader.load(
+            .directoryChild(root: directory, relativePath: "link.txt")))
+        XCTAssertThrowsError(try EmbeddedPreviewLoader.load(
+            .directoryChild(root: directory, relativePath: "sub")))
+    }
+
+    func testEmbeddedArchiveEntryExtractsRealContent() throws {
+        let zip = try writeStoredZip("inside.zip", entries: [
+            ("note.md", Data("hello from inside\n".utf8)),
+            ("photo.png", try makePNGData(width: 40, height: 30))
+        ])
+        let text = try EmbeddedPreviewLoader.load(.archiveEntry(archive: zip, path: "note.md"))
+        XCTAssertEqual(text.contentKind, .markdown)
+        XCTAssertEqual(text.body, "hello from inside\n")
+
+        let image = try EmbeddedPreviewLoader.load(.archiveEntry(archive: zip, path: "photo.png"))
+        XCTAssertEqual(image.contentKind, .image)
+        XCTAssertNotNil(image.imagePNGData)
+    }
+
+    func testEmbeddedArchiveEntryFromTar() throws {
+        let url = try write("bundle.tar",
+                            makeTar([TarEntry(name: "hello.txt", payload: Data("tar payload\n".utf8))]))
+        let result = try EmbeddedPreviewLoader.load(.archiveEntry(archive: url, path: "hello.txt"))
+        XCTAssertEqual(result.contentKind, .text)
+        XCTAssertEqual(result.body, "tar payload\n")
+    }
+
+    func testEmbeddedArchiveEntryRefusesTypesThatNeedAFilePath() throws {
+        let zip = try writeStoredZip("mixed.zip", entries: [
+            ("data.sqlite", Data("SQLite format 3\0".utf8)),
+            ("table.parquet", Data("PAR1".utf8)),
+            ("inner.zip", Data("PK".utf8))
+        ])
+        for name in ["data.sqlite", "table.parquet", "inner.zip"] {
+            XCTAssertThrowsError(try EmbeddedPreviewLoader.load(.archiveEntry(archive: zip, path: name)),
+                                 name) { error in
+                XCTAssertTrue(error.localizedDescription.contains("不支持"),
+                              "\(name): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func testEmbeddedArchiveEntryMissingAndOversizedAreExplicit() throws {
+        let small = try writeStoredZip("one.zip", entries: [("only.txt", Data("x".utf8))])
+        XCTAssertThrowsError(try EmbeddedPreviewLoader.load(
+            .archiveEntry(archive: small, path: "absent.txt"))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("找不到"))
+        }
+        // A tar is used here because it needs no per-entry CRC over 17 MiB of payload.
+        let big = try write("big.tar", makeTar([
+            TarEntry(name: "big.txt",
+                     payload: Data(repeating: 0x61, count: EmbeddedPreviewLoader.maximumEntryBytes + 1024 * 1024))
+        ]))
+        let result = try EmbeddedPreviewLoader.load(.archiveEntry(archive: big, path: "big.txt"))
+        XCTAssertTrue(result.truncated)
+        XCTAssertTrue(result.summary.contains("仅显示前"))
+        XCTAssertEqual(result.body.utf8.count, EmbeddedPreviewLoader.maximumEntryBytes)
+    }
+
+    /// The detail pane locates an entry through `sourcePath`, so a listing must never hand back the
+    /// display-escaped `path` for that purpose.
+    func testListingProvidesUnescapedSourcePath() throws {
+        let nested = directory.appendingPathComponent("nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        _ = try write("line\nbreak.txt", Data("x".utf8))
+        _ = try write("nested/child.txt", Data("y".utf8))
+        let tree = try PreviewLoader.load(directory)
+        XCTAssertEqual(tree.items.first(where: { $0.path == "line\\nbreak.txt" })?.sourcePath,
+                       "line\nbreak.txt")
+        XCTAssertEqual(tree.items.first(where: { $0.path == "nested/child.txt" })?.sourcePath,
+                       "nested/child.txt")
+        // Escaped and raw paths must stay distinguishable, and every entry must be locatable.
+        XCTAssertTrue(tree.items.allSatisfy { $0.sourcePath != nil })
+
+        let zip = try writeStoredZip("paths.zip", entries: [("a.txt", Data("z".utf8))])
+        let listed = try PreviewLoader.load(zip)
+        XCTAssertEqual(listed.items.first?.sourcePath, "a.txt")
+        XCTAssertEqual(try EmbeddedPreviewLoader.load(
+            .archiveEntry(archive: zip, path: try XCTUnwrap(listed.items.first?.sourcePath))).body, "z")
+    }
+
 }
 
 private struct ZipEntry {
@@ -629,4 +767,83 @@ private extension Data {
         var little = value.littleEndian
         Swift.withUnsafeBytes(of: &little) { append(contentsOf: $0) }
     }
+}
+
+private extension PreviewLoaderTests {
+    /// A real ZIP using only the "stored" method, so libarchive can read the entry data back.
+    /// `writeZip` above declares deflate sizes but writes no payload; it only exercises listing.
+    func writeStoredZip(_ name: String, entries: [(name: String, data: Data)]) throws -> URL {
+        var local = Data()
+        var central = Data()
+        for entry in entries {
+            let nameData = Data(entry.name.utf8)
+            let offset = UInt32(local.count)
+            let checksum = testCRC32(entry.data)
+            let size = UInt32(entry.data.count)
+
+            local.appendLE(UInt32(0x0403_4b50)); local.appendLE(UInt16(20))
+            local.appendLE(UInt16(0x0800))                      // UTF-8 names
+            local.appendLE(UInt16(0))                           // method 0 = stored
+            local.appendLE(UInt16(0)); local.appendLE(UInt16(0)); local.appendLE(checksum)
+            local.appendLE(size); local.appendLE(size)
+            local.appendLE(UInt16(nameData.count)); local.appendLE(UInt16(0))
+            local.append(nameData)
+            local.append(entry.data)
+
+            central.appendLE(UInt32(0x0201_4b50)); central.appendLE(UInt16(20)); central.appendLE(UInt16(20))
+            central.appendLE(UInt16(0x0800)); central.appendLE(UInt16(0))
+            central.appendLE(UInt16(0)); central.appendLE(UInt16(0)); central.appendLE(checksum)
+            central.appendLE(size); central.appendLE(size)
+            central.appendLE(UInt16(nameData.count)); central.appendLE(UInt16(0)); central.appendLE(UInt16(0))
+            central.appendLE(UInt16(0)); central.appendLE(UInt16(0)); central.appendLE(UInt32(0))
+            central.appendLE(offset)
+            central.append(nameData)
+        }
+        var archive = local
+        let centralOffset = UInt32(archive.count)
+        archive.append(central)
+        archive.appendLE(UInt32(0x0605_4b50)); archive.appendLE(UInt16(0)); archive.appendLE(UInt16(0))
+        archive.appendLE(UInt16(entries.count)); archive.appendLE(UInt16(entries.count))
+        archive.appendLE(UInt32(central.count)); archive.appendLE(centralOffset); archive.appendLE(UInt16(0))
+        return try write(name, archive)
+    }
+
+    /// A real PNG, produced through ImageIO so the decoder path is exercised for real.
+    func makePNGData(width: Int, height: Int) throws -> Data {
+        guard let context = CGContext(data: nil, width: width, height: height,
+                                      bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let image = context.makeImage() else {
+            throw NSError(domain: "PNGFixture", code: 1)
+        }
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output as CFMutableData, UTType.png.identifier as CFString, 1, nil) else {
+            throw NSError(domain: "PNGFixture", code: 2)
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw NSError(domain: "PNGFixture", code: 3)
+        }
+        return output as Data
+    }
+}
+
+/// Table-driven CRC-32 (IEEE), required because stored ZIP entries carry a checksum that the
+/// system archive reader verifies.
+private func testCRC32(_ data: Data) -> UInt32 {
+    var table = [UInt32](repeating: 0, count: 256)
+    for index in 0..<256 {
+        var value = UInt32(index)
+        for _ in 0..<8 {
+            value = (value & 1) == 1 ? (value >> 1) ^ 0xedb8_8320 : value >> 1
+        }
+        table[index] = value
+    }
+    var crc: UInt32 = 0xffff_ffff
+    for byte in data {
+        crc = (crc >> 8) ^ table[Int((crc ^ UInt32(byte)) & 0xff)]
+    }
+    return crc ^ 0xffff_ffff
 }

@@ -22,8 +22,8 @@
 
 1. 打开 SpaceLens，点击“创建验收文件…”保存 Hello.spacelens。
 2. 在 Finder 选中文件按空格，应出现“SpaceLens · 验收文件”。
-3. 选择普通文件夹按空格，应出现“SpaceLens · 文件夹”，列表显示名称、类型、大小和修改时间，最多读取 10,000 项和 10 层。
-4. 选择 ZIP 按空格，应显示归档条目、大小、压缩方法和修改时间；SpaceLens 不会解压内容。
+3. 选择普通文件夹按空格，应出现“SpaceLens · 文件夹”，列表显示名称、类型、大小和修改时间，最多读取 10,000 项和 10 层。点击列表中的文件后，右侧窗格会就地预览其内容（图片、文本、代码、Markdown、表格、结构树、图表）；分隔条可拖拽调整宽度。
+4. 选择 ZIP 按空格，应显示归档条目、大小、压缩方法和修改时间；点击条目同样会在右侧窗格预览内容。归档条目的内容在**内存中**解析，SpaceLens 不会解压到磁盘；归档内的 SQLite、列式数据（Parquet/Arrow/Feather/Avro）与嵌套压缩包不支持在窗格中预览，会给出明确提示。容器内的 PDF 也不在窗格中预览。
 5. 选择 Markdown 或代码文件，应显示 SpaceLens 排版或语法着色；选择 TSV 应显示 SpaceLens 表格；选择 JSON/JSON Lines 应显示可展开结构树。
 6. 选择 CSV 和普通 TXT，应继续显示 macOS 原生预览。在 macOS 27 上，这两类文件由系统内置 Office/Text 生成器优先处理，SpaceLens 不强行移除或禁用系统生成器。
 7. 选择 TAR、TGZ、TBZ2、TXZ，应显示 SpaceLens 的可展开归档树和修改时间列；选择独立 GZ/BZ2/XZ，应显示一个压缩数据条目。
@@ -74,6 +74,9 @@ pluginkit -r /Applications/SpaceLens.app/Contents/PlugIns/SpaceLensPreview.appex
 - [x] Zig、Fortran、Protocol Buffers、Terraform、SystemVerilog 与 Makefile 预览（用户确认全部正常）
 - [x] 文件夹、ZIP 与归档列表的“修改时间”列，日期跟随系统首选界面语言（用户确认）
 - [x] 整机重启后 Quick Look 预览正常（用户实机确认）
+- [x] 文件夹条目在右侧窗格就地预览（图片、纯文本、代码、Markdown；用户确认）
+- [x] ZIP 条目在右侧窗格就地预览（图片、Markdown；用户确认）
+- [ ] 窗格内 JSON/CSV/图表与加密归档条目的视觉确认（核心路径已有自动测试）
 - [ ] 其他 macOS 版本及 Intel 实机（尚未验证）
 
 原生图片/PDF/音频/视频样例可用 `xcrun swift scripts/create-native-fixtures.swift build/NativeFixtures` 生成。视频生成器使用兼容旧 SDK 的 API，在 macOS 27 上会给出弃用警告，不影响产品代码。生成文件不进入仓库。

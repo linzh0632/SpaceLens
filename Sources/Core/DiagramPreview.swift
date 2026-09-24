@@ -5,9 +5,8 @@ enum DiagramPreview {
     static let extensions: Set<String> = ["mermaid", "mmd", "puml", "plantuml", "drawio"]
     private static let maximumElements = 500
 
-    static func load(_ url: URL, byteLimit: Int) throws -> PreviewSnapshot {
-        let ext = url.pathExtension.lowercased()
-        let (source, truncated) = try CommonTextPreview.readText(url, byteLimit: byteLimit)
+    static func load(source: String, truncated: Bool, name: String, ext: String,
+                     byteLimit: Int) throws -> PreviewSnapshot {
         guard !truncated else {
             throw PreviewFailure.malformedText("图表超过 \(formatBytes(Int64(byteLimit))) 的安全读取上限。")
         }
@@ -19,7 +18,7 @@ enum DiagramPreview {
         case "drawio": result = try renderDrawIO(source)
         default: throw PreviewFailure.unsupported
         }
-        return PreviewSnapshot(title: url.lastPathComponent,
+        return PreviewSnapshot(title: name,
             summary: "SpaceLens · \(result.format) · \(result.elementCount) 个元素 · 本地安全渲染",
             body: source, truncated: result.truncated, contentKind: .diagram,
             language: result.format, diagramSVG: result.svg)

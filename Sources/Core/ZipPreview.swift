@@ -81,7 +81,8 @@ enum ZipPreview {
             let modificationDate = dosDate(modifiedDate, modifiedTime)
             let date = modificationDate.map { " · \(formatDate($0))" } ?? ""
             rows.append("[\(folder ? "文件夹" : "文件")] \(escape(name))\(size) · \(compressionName(method))\(date)\(note)")
-            items.append(PreviewSnapshot.Item(path: escape(name), kind: folder ? .folder : .file,
+            items.append(PreviewSnapshot.Item(path: escape(name), sourcePath: name,
+                kind: folder ? .folder : .file,
                 size: folder ? nil : clampedInt64(uncompressed),
                 compressedSize: folder ? nil : clampedInt64(compressed),
                 modificationDate: modificationDate, compression: compressionName(method), warnings: notes))

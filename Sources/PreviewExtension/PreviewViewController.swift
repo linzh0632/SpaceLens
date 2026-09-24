@@ -4,12 +4,15 @@ import OSLog
 
 final class PreviewViewController: NSViewController, QLPreviewingController,
                                    NSOutlineViewDataSource, NSOutlineViewDelegate,
-                                   NSTableViewDataSource, NSTableViewDelegate {
+                                   NSTableViewDataSource, NSTableViewDelegate,
+                                   NSSplitViewDelegate {
     private let fileIcon = NSImageView()
     private let heading = NSTextField(labelWithString: "SpaceLens")
     private let detail = NSTextField(labelWithString: "正在读取…")
     private let outline = NSOutlineView()
     private let tableScroll = NSScrollView()
+    private let split = NSSplitView()
+    private let detailPane = DetailPreviewPane(frame: .zero)
     private let text = NSTextView()
     private let textScroll = NSScrollView()
     private let dataTable = NSTableView()
@@ -21,6 +24,10 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private var roots: [PreviewNode] = []
     private var tableData: PreviewSnapshot.TableData?
     private var generation = UUID()
+    private var previewedURL: URL?
+    private var containerKind: PreviewSnapshot.ContentKind?
+    private var detailGeneration = UUID()
+    private var didPositionSplit = false
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 900, height: 620))
@@ -47,7 +54,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
         let separator = NSBox()
         separator.boxType = .separator
-        for child in [fileIcon, heading, detail, separator, tableScroll, textScroll, dataScroll, diagramScroll, emptyState] {
+        // The outline lives inside a split view so a clicked entry can be previewed on the right.
+        // NSSplitView sizes its arranged subviews by frame, so those two opt out of Auto Layout
+        // while every other view stays constraint driven.
+        tableScroll.translatesAutoresizingMaskIntoConstraints = true
+        detailPane.translatesAutoresizingMaskIntoConstraints = true
+        split.isVertical = true
+        split.dividerStyle = .thin
+        split.delegate = self
+        split.addArrangedSubview(tableScroll)
+        split.addArrangedSubview(detailPane)
+        split.isHidden = true
+
+        for child in [fileIcon, heading, detail, separator, split, textScroll, dataScroll, diagramScroll, emptyState] {
             child.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(child)
         }
@@ -65,29 +84,47 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             separator.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 28),
             separator.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -28),
             separator.topAnchor.constraint(equalTo: fileIcon.bottomAnchor, constant: 20),
-            tableScroll.leadingAnchor.constraint(equalTo: separator.leadingAnchor),
-            tableScroll.trailingAnchor.constraint(equalTo: separator.trailingAnchor),
-            tableScroll.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 16),
-            tableScroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -24),
-            textScroll.leadingAnchor.constraint(equalTo: tableScroll.leadingAnchor),
-            textScroll.trailingAnchor.constraint(equalTo: tableScroll.trailingAnchor),
-            textScroll.topAnchor.constraint(equalTo: tableScroll.topAnchor),
-            textScroll.bottomAnchor.constraint(equalTo: tableScroll.bottomAnchor),
-            dataScroll.leadingAnchor.constraint(equalTo: tableScroll.leadingAnchor),
-            dataScroll.trailingAnchor.constraint(equalTo: tableScroll.trailingAnchor),
-            dataScroll.topAnchor.constraint(equalTo: tableScroll.topAnchor),
-            dataScroll.bottomAnchor.constraint(equalTo: tableScroll.bottomAnchor),
-            diagramScroll.leadingAnchor.constraint(equalTo: tableScroll.leadingAnchor),
-            diagramScroll.trailingAnchor.constraint(equalTo: tableScroll.trailingAnchor),
-            diagramScroll.topAnchor.constraint(equalTo: tableScroll.topAnchor),
-            diagramScroll.bottomAnchor.constraint(equalTo: tableScroll.bottomAnchor),
-            emptyState.centerXAnchor.constraint(equalTo: tableScroll.centerXAnchor),
-            emptyState.centerYAnchor.constraint(equalTo: tableScroll.centerYAnchor),
-            emptyState.widthAnchor.constraint(lessThanOrEqualTo: tableScroll.widthAnchor, constant: -80)
+            split.leadingAnchor.constraint(equalTo: separator.leadingAnchor),
+            split.trailingAnchor.constraint(equalTo: separator.trailingAnchor),
+            split.topAnchor.constraint(equalTo: separator.bottomAnchor, constant: 16),
+            split.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -24),
+            textScroll.leadingAnchor.constraint(equalTo: split.leadingAnchor),
+            textScroll.trailingAnchor.constraint(equalTo: split.trailingAnchor),
+            textScroll.topAnchor.constraint(equalTo: split.topAnchor),
+            textScroll.bottomAnchor.constraint(equalTo: split.bottomAnchor),
+            dataScroll.leadingAnchor.constraint(equalTo: split.leadingAnchor),
+            dataScroll.trailingAnchor.constraint(equalTo: split.trailingAnchor),
+            dataScroll.topAnchor.constraint(equalTo: split.topAnchor),
+            dataScroll.bottomAnchor.constraint(equalTo: split.bottomAnchor),
+            diagramScroll.leadingAnchor.constraint(equalTo: split.leadingAnchor),
+            diagramScroll.trailingAnchor.constraint(equalTo: split.trailingAnchor),
+            diagramScroll.topAnchor.constraint(equalTo: split.topAnchor),
+            diagramScroll.bottomAnchor.constraint(equalTo: split.bottomAnchor),
+            emptyState.centerXAnchor.constraint(equalTo: split.centerXAnchor),
+            emptyState.centerYAnchor.constraint(equalTo: split.centerYAnchor),
+            emptyState.widthAnchor.constraint(lessThanOrEqualTo: split.widthAnchor, constant: -80)
         ])
         view = root
         preferredContentSize = NSSize(width: 900, height: 620)
         showLoading()
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        // NSSplitView has no intrinsic divider position; place it once, on the first real layout.
+        guard !didPositionSplit, split.frame.width > 0 else { return }
+        didPositionSplit = true
+        split.setPosition(min(420, max(320, split.frame.width * 0.55)), ofDividerAt: 0)
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat,
+                   ofSubviewAt dividerIndex: Int) -> CGFloat {
+        320
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat,
+                   ofSubviewAt dividerIndex: Int) -> CGFloat {
+        max(320, splitView.frame.width - 300)
     }
 
     private func configureOutline() {
@@ -184,6 +221,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         _ = view
         let request = UUID()
         generation = request
+        previewedURL = url
         heading.stringValue = url.lastPathComponent
         showLoading()
         let worker = Task.detached(priority: .userInitiated) { try PreviewLoader.load(url) }
@@ -208,6 +246,9 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         fileIcon.image = NSImage(systemSymbolName: "doc", accessibilityDescription: nil)
         roots = []
         outline.reloadData()
+        split.isHidden = true
+        containerKind = nil
+        detailPane.showPlaceholder("选择左侧的文件以预览内容。")
         tableScroll.isHidden = true
         textScroll.isHidden = true
         dataScroll.isHidden = true
@@ -221,6 +262,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         detail.stringValue = snapshot.summary
         emptyState.isHidden = true
         diagramScroll.isHidden = true
+        split.isHidden = true
         switch snapshot.contentKind {
         case .directory, .zip, .archive:
             configureOutlineColumns(name: "名称", kind: "类型", value: "大小", showsModificationDate: true)
@@ -231,7 +273,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             roots = PreviewNode.makeTree(from: snapshot.items)
             outline.reloadData()
             outline.expandItem(nil, expandChildren: true)
+            outline.deselectAll(nil)
+            containerKind = snapshot.contentKind
+            split.isHidden = roots.isEmpty
             tableScroll.isHidden = roots.isEmpty
+            detailPane.isHidden = false
+            detailPane.showPlaceholder("选择左侧的文件以预览内容。")
             textScroll.isHidden = true
             dataScroll.isHidden = true
             if roots.isEmpty {
@@ -246,7 +293,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             roots = PreviewNode.makeStructuredTree(from: snapshot.structuredItems)
             outline.reloadData()
             outline.expandItem(nil, expandChildren: true)
+            // Structured values are not selectable entries, so the outline keeps the full width.
+            containerKind = nil
+            split.isHidden = roots.isEmpty
             tableScroll.isHidden = roots.isEmpty
+            detailPane.isHidden = true
             textScroll.isHidden = true
             dataScroll.isHidden = true
             if roots.isEmpty {
@@ -262,11 +313,14 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             dataScroll.isHidden = false
             tableScroll.isHidden = true
             textScroll.isHidden = true
-        case .diagram:
-            fileIcon.image = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted", accessibilityDescription: nil)
-            fileIcon.contentTintColor = .systemCyan
-            guard let svg = snapshot.diagramSVG, let image = NSImage(data: Data(svg.utf8)) else {
-                renderError(PreviewFailure.malformedText("图表 SVG 无法显示。"))
+        case .diagram, .image:
+            let isDiagram = snapshot.contentKind == .diagram
+            fileIcon.image = NSImage(systemSymbolName: isDiagram
+                ? "point.3.connected.trianglepath.dotted" : "photo.fill", accessibilityDescription: nil)
+            fileIcon.contentTintColor = isDiagram ? .systemCyan : .systemPink
+            let data = isDiagram ? snapshot.diagramSVG.map { Data($0.utf8) } : snapshot.imagePNGData
+            guard let data, let image = NSImage(data: data) else {
+                renderError(PreviewFailure.malformedText(isDiagram ? "图表 SVG 无法显示。" : "图片无法显示。"))
                 return
             }
             diagramImage.image = image
@@ -285,6 +339,44 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             textScroll.isHidden = false
             tableScroll.isHidden = true
             dataScroll.isHidden = true
+        }
+    }
+
+    /// Loads the clicked entry into the right-hand pane. Only plain files are previewable; folder
+    /// rows keep their expand/collapse behaviour and links are never followed.
+    func outlineViewSelectionDidChange(_ notification: Notification) {
+        guard let kind = containerKind, let root = previewedURL else { return }
+        let selected = outline.selectedRow
+        guard selected >= 0,
+              let node = outline.item(atRow: selected) as? PreviewNode,
+              node.item?.kind == .file,
+              let sourcePath = node.item?.sourcePath else {
+            detailPane.showPlaceholder("选择左侧的文件以预览内容。")
+            return
+        }
+        let source: EmbeddedPreviewLoader.Source
+        switch kind {
+        case .directory: source = .directoryChild(root: root, relativePath: sourcePath)
+        case .zip, .archive: source = .archiveEntry(archive: root, path: sourcePath)
+        default: return
+        }
+        let request = UUID()
+        detailGeneration = request
+        detailPane.showLoading(name: node.name)
+        Task { @MainActor in
+            do {
+                let snapshot = try await Task.detached(priority: .userInitiated) {
+                    try EmbeddedPreviewLoader.load(source)
+                }.value
+                guard self.detailGeneration == request else { return }
+                self.detailPane.show(snapshot)
+                self.logger.notice("SpaceLens detail preview rendered; kind=\(String(describing: snapshot.contentKind), privacy: .public)")
+            } catch {
+                guard self.detailGeneration == request else { return }
+                if error is CancellationError { return }
+                self.detailPane.showError(name: node.name, message: error.localizedDescription)
+                self.logger.error("SpaceLens detail preview failed: \(error.localizedDescription, privacy: .private)")
+            }
         }
     }
 
@@ -311,6 +403,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         detail.stringValue = "SpaceLens · 无法读取"
         fileIcon.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
         fileIcon.contentTintColor = .systemOrange
+        split.isHidden = true
+        containerKind = nil
         tableScroll.isHidden = true
         textScroll.isHidden = true
         dataScroll.isHidden = true
@@ -658,4 +752,335 @@ private func renderMarkdown(_ source: String) -> NSAttributedString {
 
 private extension Int {
     var nonzero: Int? { self == 0 ? nil : self }
+}
+
+/// Right-hand pane of a container preview. Renders one entry with a compact version of the same
+/// view types the main preview uses. It never loads anything itself — the controller hands it an
+/// already-loaded snapshot, so all reading limits stay in `EmbeddedPreviewLoader`.
+private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
+                                       NSTableViewDataSource, NSTableViewDelegate {
+    private let titleLabel = NSTextField(labelWithString: "预览")
+    private let subtitleLabel = NSTextField(labelWithString: "")
+    private let textView = NSTextView()
+    private let textScroll = NSScrollView()
+    private let imageView = NSImageView()
+    private let imageScroll = NSScrollView()
+    private let tableView = NSTableView()
+    private let tableScroll = NSScrollView()
+    private let outlineView = NSOutlineView()
+    private let outlineScroll = NSScrollView()
+    private let messageLabel = NSTextField(wrappingLabelWithString: "")
+    private var tableData: PreviewSnapshot.TableData?
+    private var outlineRoots: [PreviewNode] = []
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        build()
+        showPlaceholder("选择左侧的文件以预览内容。")
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    private func build() {
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.lineBreakMode = .byTruncatingMiddle
+        subtitleLabel.font = .systemFont(ofSize: 11)
+        subtitleLabel.textColor = .secondaryLabelColor
+        subtitleLabel.lineBreakMode = .byTruncatingTail
+
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = true
+        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        textView.backgroundColor = .textBackgroundColor
+        prepare(textScroll, document: textView)
+
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.imageAlignment = .alignCenter
+        prepare(imageScroll, document: imageView)
+        imageScroll.backgroundColor = .white
+        imageScroll.drawsBackground = true
+
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.headerView = NSTableHeaderView()
+        tableView.rowHeight = 24
+        tableView.usesAlternatingRowBackgroundColors = true
+        prepare(tableScroll, document: tableView)
+
+        outlineView.dataSource = self
+        outlineView.delegate = self
+        outlineView.headerView = NSTableHeaderView()
+        outlineView.rowHeight = 24
+        outlineView.indentationPerLevel = 14
+        prepare(outlineScroll, document: outlineView)
+
+        messageLabel.alignment = .center
+        messageLabel.font = .systemFont(ofSize: 12)
+        messageLabel.textColor = .secondaryLabelColor
+        messageLabel.isHidden = true
+
+        let divider = NSBox()
+        divider.boxType = .separator
+
+        for child in [titleLabel, subtitleLabel, divider, textScroll, imageScroll,
+                      tableScroll, outlineScroll, messageLabel] {
+            child.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(child)
+        }
+        var constraints: [NSLayoutConstraint] = [
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            divider.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            divider.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            divider.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
+            messageLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            messageLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            messageLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40)
+        ]
+        for scroll in [textScroll, imageScroll, tableScroll, outlineScroll] {
+            constraints.append(contentsOf: [
+                scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+                scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+                scroll.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10),
+                scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
+            ])
+        }
+        NSLayoutConstraint.activate(constraints)
+    }
+
+    private func prepare(_ scroll: NSScrollView, document: NSView) {
+        // A document view is frame sized: a zero-sized one leaves the scroll view showing nothing
+        // but its border, which is how the pane looked before this was handled.
+        document.frame = NSRect(x: 0, y: 0, width: 320, height: 320)
+        scroll.documentView = document
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.borderType = .lineBorder
+        scroll.wantsLayer = true
+        scroll.layer?.cornerRadius = 8
+        scroll.layer?.masksToBounds = true
+        scroll.isHidden = true
+    }
+
+    override func layout() {
+        super.layout()
+        // Keep frame-sized documents matched to the clip view. Height is left to AppKit so table
+        // and outline views can still grow to fit their rows.
+        let scrolled: [(NSScrollView, NSView)] = [(textScroll, textView), (tableScroll, tableView),
+                                                  (outlineScroll, outlineView)]
+        for (scroll, document) in scrolled {
+            let width = scroll.contentSize.width
+            if width > 1 { document.frame.size.width = width }
+        }
+    }
+
+    /// Sizes a document view to the visible area right before its content is shown.
+    private func reset(_ document: NSView, in scroll: NSScrollView) {
+        let size = scroll.contentSize
+        document.frame = NSRect(x: 0, y: 0, width: max(size.width, 1), height: max(size.height, 1))
+    }
+
+    /// Shows an image scaled down to the pane width, never enlarged past its natural size.
+    private func showImage(_ image: NSImage) {
+        var size = image.size
+        let available = imageScroll.contentSize.width
+        if size.width > 0, available > 1, size.width > available {
+            let scale = available / size.width
+            size = NSSize(width: floor(size.width * scale), height: floor(size.height * scale))
+        }
+        imageView.image = image
+        imageView.frame = NSRect(origin: .zero, size: size)
+        imageScroll.isHidden = false
+    }
+
+    // MARK: - Content
+
+    func showPlaceholder(_ text: String) {
+        titleLabel.stringValue = "预览"
+        subtitleLabel.stringValue = ""
+        showMessage(text)
+    }
+
+    func showLoading(name: String) {
+        titleLabel.stringValue = name
+        subtitleLabel.stringValue = "SpaceLens · 正在读取…"
+        showMessage("正在读取…")
+    }
+
+    func showError(name: String, message: String) {
+        titleLabel.stringValue = name
+        subtitleLabel.stringValue = "SpaceLens · 无法读取"
+        showMessage(message)
+    }
+
+    func show(_ snapshot: PreviewSnapshot) {
+        titleLabel.stringValue = snapshot.title
+        subtitleLabel.stringValue = snapshot.summary
+        hideContent()
+        switch snapshot.contentKind {
+        case .image:
+            guard let data = snapshot.imagePNGData, let image = NSImage(data: data) else {
+                showMessage("图片无法显示。")
+                return
+            }
+            showImage(image)
+        case .text, .code, .markdown:
+            reset(textView, in: textScroll)
+            if snapshot.contentKind == .code {
+                textView.textStorage?.setAttributedString(highlightCode(snapshot.body))
+            } else if snapshot.contentKind == .markdown {
+                textView.textStorage?.setAttributedString(renderMarkdown(snapshot.body))
+            } else {
+                textView.string = snapshot.body
+                textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            }
+            textScroll.isHidden = false
+        case .table:
+            reset(tableView, in: tableScroll)
+            tableData = snapshot.table
+            rebuildTableColumns()
+            tableView.reloadData()
+            tableScroll.isHidden = false
+        case .structured, .database:
+            reset(outlineView, in: outlineScroll)
+            outlineRoots = PreviewNode.makeStructuredTree(from: snapshot.structuredItems)
+            configureOutlineColumns(isContainer: false)
+            outlineView.reloadData()
+            outlineView.expandItem(nil, expandChildren: true)
+            if outlineRoots.isEmpty { showMessage("没有可显示的结构。") } else { outlineScroll.isHidden = false }
+        case .diagram:
+            guard let svg = snapshot.diagramSVG, let image = NSImage(data: Data(svg.utf8)) else {
+                showMessage("图表无法显示。")
+                return
+            }
+            showImage(image)
+        case .directory, .zip, .archive:
+            // A nested container is listed but not drillable; deeper nesting stays out of scope.
+            reset(outlineView, in: outlineScroll)
+            outlineRoots = PreviewNode.makeTree(from: snapshot.items)
+            configureOutlineColumns(isContainer: true)
+            outlineView.reloadData()
+            outlineView.expandItem(nil, expandChildren: true)
+            if outlineRoots.isEmpty { showMessage("这是空的容器。") } else { outlineScroll.isHidden = false }
+        }
+    }
+
+    private func hideContent() {
+        messageLabel.isHidden = true
+        textScroll.isHidden = true
+        imageScroll.isHidden = true
+        tableScroll.isHidden = true
+        outlineScroll.isHidden = true
+    }
+
+    private func showMessage(_ text: String) {
+        textScroll.isHidden = true
+        imageScroll.isHidden = true
+        tableScroll.isHidden = true
+        outlineScroll.isHidden = true
+        messageLabel.stringValue = text
+        messageLabel.isHidden = false
+    }
+
+    private func configureOutlineColumns(isContainer: Bool) {
+        if outlineView.tableColumns.isEmpty {
+            let name = NSTableColumn(identifier: .nameColumn)
+            name.width = 200
+            name.minWidth = 120
+            let kind = NSTableColumn(identifier: .kindColumn)
+            kind.width = 90
+            kind.minWidth = 60
+            let value = NSTableColumn(identifier: .sizeColumn)
+            value.width = 80
+            value.minWidth = 50
+            let date = NSTableColumn(identifier: .modificationDateColumn)
+            date.width = 140
+            date.minWidth = 110
+            outlineView.addTableColumn(name)
+            outlineView.addTableColumn(kind)
+            outlineView.addTableColumn(value)
+            outlineView.addTableColumn(date)
+            outlineView.outlineTableColumn = name
+        }
+        outlineView.tableColumns[0].title = isContainer ? "名称" : "键"
+        outlineView.tableColumns[1].title = "类型"
+        outlineView.tableColumns[2].title = isContainer ? "大小" : "值"
+        outlineView.tableColumns[3].isHidden = !isContainer
+    }
+
+    private func rebuildTableColumns() {
+        tableView.tableColumns.forEach(tableView.removeTableColumn)
+        for (index, title) in (tableData?.columns ?? []).enumerated() {
+            let column = NSTableColumn(identifier: .init("detail-\(index)"))
+            column.title = title
+            column.width = 130
+            column.minWidth = 70
+            tableView.addTableColumn(column)
+        }
+    }
+
+    private func cell(_ value: String, identifier: NSUserInterfaceItemIdentifier) -> NSView {
+        let cell = NSTableCellView()
+        let label = NSTextField(labelWithString: value)
+        label.font = .systemFont(ofSize: 12)
+        label.lineBreakMode = .byTruncatingMiddle
+        label.translatesAutoresizingMaskIntoConstraints = false
+        cell.identifier = identifier
+        cell.textField = label
+        cell.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+            label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
+            label.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+        ])
+        return cell
+    }
+
+    // MARK: - Outline data source
+
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        (item as? PreviewNode)?.children.count ?? outlineRoots.count
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        (item as? PreviewNode)?.children[index] ?? outlineRoots[index]
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+        !((item as? PreviewNode)?.children.isEmpty ?? true)
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?,
+                     item: Any) -> NSView? {
+        guard let node = item as? PreviewNode, let identifier = tableColumn?.identifier else { return nil }
+        let value: String
+        switch identifier {
+        case .nameColumn: value = node.name
+        case .kindColumn: value = node.kindLabel
+        case .sizeColumn: value = node.valueLabel
+        default: value = node.modificationDateLabel
+        }
+        return cell(value, identifier: identifier)
+    }
+
+    // MARK: - Table data source
+
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        tableData?.rows.count ?? 0
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?,
+                   row: Int) -> NSView? {
+        guard let identifier = tableColumn?.identifier,
+              let index = tableView.tableColumns.firstIndex(where: { $0.identifier == identifier }),
+              let rows = tableData?.rows, row < rows.count, index < rows[row].count else { return nil }
+        return cell(rows[row][index], identifier: identifier)
+    }
 }
