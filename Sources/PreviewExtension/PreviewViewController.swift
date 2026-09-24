@@ -195,11 +195,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         detail.stringValue = snapshot.summary
         emptyState.isHidden = true
         switch snapshot.contentKind {
-        case .directory, .zip:
+        case .directory, .zip, .archive:
             configureOutlineColumns(name: "名称", kind: "类型", value: "大小")
-            fileIcon.image = NSImage(systemSymbolName: snapshot.contentKind == .zip ? "doc.zipper" : "folder.fill",
+            let isArchive = snapshot.contentKind == .zip || snapshot.contentKind == .archive
+            fileIcon.image = NSImage(systemSymbolName: isArchive ? "doc.zipper" : "folder.fill",
                                      accessibilityDescription: nil)
-            fileIcon.contentTintColor = snapshot.contentKind == .zip ? .systemOrange : .systemBlue
+            fileIcon.contentTintColor = isArchive ? .systemOrange : .systemBlue
             roots = PreviewNode.makeTree(from: snapshot.items)
             outline.reloadData()
             outline.expandItem(nil, expandChildren: true)
@@ -207,7 +208,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             textScroll.isHidden = true
             dataScroll.isHidden = true
             if roots.isEmpty {
-                emptyState.stringValue = snapshot.contentKind == .zip ? "这是一个空 ZIP。" : "这是一个空文件夹。"
+                emptyState.stringValue = isArchive ? "这个归档中没有可显示的条目。" : "这是一个空文件夹。"
                 emptyState.isHidden = false
             }
         case .structured:
