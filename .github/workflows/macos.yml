@@ -1,4 +1,4 @@
-name: macOS build and tests
+name: macOS release check
 on:
   push:
     branches: [main, 'feat/**']
@@ -10,14 +10,12 @@ concurrency:
   group: macos-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  build:
+  release-check:
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Core tests
-        run: ./scripts/test.sh
-      - name: Release app and local signatures
-        run: ./scripts/build.sh
+      - name: Tests, metadata, and Release build
+        run: ./scripts/release-check.sh
