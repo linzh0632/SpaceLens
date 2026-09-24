@@ -105,6 +105,8 @@ public enum PreviewFailure: LocalizedError, Equatable {
     case damagedArchive(String)
     case unsupportedArchive(String)
     case damagedDatabase(String)
+    case damagedData(String)
+    case unsupportedData(String)
 
     public var errorDescription: String? {
         switch self {
@@ -114,6 +116,8 @@ public enum PreviewFailure: LocalizedError, Equatable {
         case .damagedArchive(let detail): return "归档文件已损坏或不完整：\(detail)"
         case .unsupportedArchive(let detail): return "暂不支持这个归档：\(detail)"
         case .damagedDatabase(let detail): return "SQLite 数据库无法读取：\(detail)"
+        case .damagedData(let detail): return "数据文件已损坏或不完整：\(detail)"
+        case .unsupportedData(let detail): return "暂不支持这个数据文件：\(detail)"
         }
     }
 }
@@ -145,6 +149,7 @@ public enum PreviewLoader {
         case "spacelens": return try loadAcceptanceFile(url)
         case "plist": return try PropertyListPreview.load(url)
         case "db", "sqlite", "sqlite3": return try SQLitePreview.load(url)
+        case let ext where ColumnarPreview.extensions.contains(ext): return try ColumnarPreview.load(url)
         case let ext where ArchivePreview.extensions.contains(ext):
             return try ArchivePreview.load(url, entryLimit: entryLimit)
         default: return try CommonTextPreview.load(url, byteLimit: maximumTextBytes)

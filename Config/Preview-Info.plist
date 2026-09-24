@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.3</string>
+	<string>0.4.4</string>
 	<key>CFBundleVersion</key>
-	<string>9</string>
+	<string>10</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -87,6 +87,10 @@
 				<string>io.github.linzh0632.spacelens.diagram-text</string>
 				<string>io.github.linzh0632.spacelens.drawio</string>
 				<string>com.jgraph.drawio.diagram</string>
+				<string>io.github.linzh0632.spacelens.parquet</string>
+				<string>io.github.linzh0632.spacelens.arrow-ipc</string>
+				<string>io.github.linzh0632.spacelens.feather</string>
+				<string>io.github.linzh0632.spacelens.avro</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
