@@ -1,6 +1,6 @@
 # SpaceLens 本机安装与验收
 
-当前为 M5 候选版本（0.5.0），支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、扩展代码与配置格式、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、扩展文档、Jupyter Notebook、Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
+当前为 0.5.1（构建 14），M1 至 M6 已完成并通过自动检查与 Finder 实机验收。支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、扩展代码与配置格式、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、扩展文档、Jupyter Notebook、Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro；文件夹与归档列表显示修改时间。
 
 ## 构建与安装
 
@@ -22,11 +22,11 @@
 
 1. 打开 SpaceLens，点击“创建验收文件…”保存 Hello.spacelens。
 2. 在 Finder 选中文件按空格，应出现“SpaceLens · 验收文件”。
-3. 选择普通文件夹按空格，应出现“SpaceLens · 文件夹”，最多读取 10,000 项和 10 层。
+3. 选择普通文件夹按空格，应出现“SpaceLens · 文件夹”，列表显示名称、类型、大小和修改时间，最多读取 10,000 项和 10 层。
 4. 选择 ZIP 按空格，应显示归档条目、大小、压缩方法和修改时间；SpaceLens 不会解压内容。
 5. 选择 Markdown 或代码文件，应显示 SpaceLens 排版或语法着色；选择 TSV 应显示 SpaceLens 表格；选择 JSON/JSON Lines 应显示可展开结构树。
 6. 选择 CSV 和普通 TXT，应继续显示 macOS 原生预览。在 macOS 27 上，这两类文件由系统内置 Office/Text 生成器优先处理，SpaceLens 不强行移除或禁用系统生成器。
-7. 选择 TAR、TGZ、TBZ2、TXZ，应显示 SpaceLens 的可展开归档树；选择独立 GZ/BZ2/XZ，应显示一个压缩数据条目。
+7. 选择 TAR、TGZ、TBZ2、TXZ，应显示 SpaceLens 的可展开归档树和修改时间列；选择独立 GZ/BZ2/XZ，应显示一个压缩数据条目。
 8. 选择 XML 或二进制 plist，应显示可展开的键、类型和值；选择 `.db`、`.sqlite` 或 `.sqlite3`，应显示用户表、列定义和每表最多 100 行只读样本。
 9. 选择 MDX、QMD、RMD、RST、AsciiDoc 或 TeX，应显示标题、正文和代码块；选择 IPYNB，应显示 Markdown、代码与文件内已有的文本输出。SpaceLens 不运行 Notebook 单元格。
 10. 选择 `.mermaid`/`.mmd`、`.puml`/`.plantuml` 或 `.drawio`，应显示 SpaceLens 的本地图表画布。支持 Mermaid 流程图与时序图、PlantUML 基础关系与时序图，以及压缩或未压缩 Draw.io XML。
@@ -72,6 +72,7 @@ pluginkit -r /Applications/SpaceLens.app/Contents/PlugIns/SpaceLensPreview.appex
 - [x] Parquet、Arrow、Feather、Avro 预览（用户确认全部正常）
 - [x] 92 个文件及文件夹样例的默认打开应用审计（SpaceLens 未接管任何双击打开操作）
 - [x] Zig、Fortran、Protocol Buffers、Terraform、SystemVerilog 与 Makefile 预览（用户确认全部正常）
+- [x] 文件夹、ZIP 与归档列表的“修改时间”列，日期跟随系统首选界面语言（用户确认）
 - [ ] 整机重启后再预览（未重启用户电脑）
 - [ ] 其他 macOS 版本及 Intel 实机（尚未验证）
 
