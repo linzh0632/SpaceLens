@@ -74,6 +74,10 @@
 				<string>io.github.linzh0632.spacelens.diagram-text</string>
 				<string>io.github.linzh0632.spacelens.drawio</string>
 				<string>com.jgraph.drawio.diagram</string>
+				<string>io.github.linzh0632.spacelens.parquet</string>
+				<string>io.github.linzh0632.spacelens.arrow-ipc</string>
+				<string>io.github.linzh0632.spacelens.feather</string>
+				<string>io.github.linzh0632.spacelens.avro</string>
 			</array>
 		</dict>
 	</array>
@@ -88,9 +92,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.3</string>
+	<string>0.4.4</string>
 	<key>CFBundleVersion</key>
-	<string>9</string>
+	<string>10</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHighResolutionCapable</key>
@@ -338,6 +342,30 @@
 			<key>UTTypeDescription</key><string>SpaceLens Draw.io Diagram</string>
 			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.drawio</string>
 			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>drawio</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+			<key>UTTypeDescription</key><string>Apache Parquet</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.parquet</string>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>parquet</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+			<key>UTTypeDescription</key><string>Apache Arrow IPC</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.arrow-ipc</string>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>arrow</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+			<key>UTTypeDescription</key><string>Apache Feather</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.feather</string>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>feather</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+			<key>UTTypeDescription</key><string>Apache Avro</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.avro</string>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>avro</string></array></dict>
 		</dict>
 	</array>
 </dict>

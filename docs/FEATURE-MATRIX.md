@@ -13,7 +13,7 @@
 | 代码与配置 | 官网展示的源代码、配置、diff、log、SQL、GraphQL 和特殊文件名 | M3 已实现通用本地语法着色、UTF-8/UTF-16 与 5 MiB 上限；无扩展名特殊文件仍需实机逐项注册 |
 | 文本数据 | CSV、TSV、JSON、JSONL、NDJSON、plist | M3 已实现 CSV/TSV 表格和 JSON/JSON Lines 结构树；M4B 已实现 XML、Binary 与 OpenStep plist 结构树、错误提示和读取上限，Finder 视觉验收已通过 |
 | 数据库 | DB、SQLite、SQLite3 | M4B 已实现用户表、列定义、数据类型、NULL/BLOB 显示和每表最多 100 行只读样本，Finder 视觉验收已通过 |
-| 列式及其他数据 | Parquet、Arrow、Feather、Avro | schema、元信息、限量数据；依赖与格式版本边界 |
+| 列式及其他数据 | Parquet、Arrow、Feather、Avro | M4E 已实现 Parquet schema/文件元信息、Arrow IPC/Feather v2 与 Avro OCF 前 100 行预览；复杂或压缩 Arrow 列安全回退到 schema，格式边界与错误明确显示；Finder 视觉验收已通过 |
 | 本地处理 | 无文件上传、无账号要求 | 断网验收；渲染不请求远程资源 |
 
 官网“106 formats represented”是展示统计，包含样例与别名，不直接用作独立格式验收数量。实施前将公开样例整理为文件级清单，每项记录处理器、支持程度、测试样例和限制。
