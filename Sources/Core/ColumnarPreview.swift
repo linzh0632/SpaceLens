@@ -299,9 +299,21 @@ enum ColumnarPreview {
             }
             return (output,false)
         case .bool:
-            let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data)
+            let values = try nextBuffer()
+            let start = try checkedBuffer(values, bodyStart: bodyStart, data: data)
             guard values.length >= Int64((rowCount + 7) / 8) else { throw PreviewFailure.damagedData("Arrow Boolean buffer 过短。") }
-            return (try (0..<rowCount).map { i in try valid(i) ? (((data[start+i/8] >> (i%8)) & 1)==1 ? "true":"false") : "NULL" },false)
+            var output: [String] = []
+            output.reserveCapacity(rowCount)
+            for index in 0..<rowCount {
+                if try !valid(index) {
+                    output.append("NULL")
+                    continue
+                }
+                let byte = data[start + index / 8]
+                let isSet = ((byte >> (index % 8)) & 1) == 1
+                output.append(isSet ? "true" : "false")
+            }
+            return (output, false)
         case .signed(let bits), .unsigned(let bits), .time(let bits):
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data), width=max(1,bits/8)
             guard values.length >= Int64(rowCount*width) else { throw PreviewFailure.damagedData("Arrow 数值 buffer 过短。") }

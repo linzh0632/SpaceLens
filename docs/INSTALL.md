@@ -1,6 +1,6 @@
 # SpaceLens 本机安装与验收
 
-当前为 M4F（0.4.6），支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、扩展代码与配置格式、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、扩展文档、Jupyter Notebook、Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
+当前为 M5 候选版本（0.5.0），支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、扩展代码与配置格式、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、扩展文档、Jupyter Notebook、Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
 
 ## 构建与安装
 
@@ -49,7 +49,7 @@
 
 ## 卸载与撤销
 
-退出 SpaceLens、关闭预览窗口；在系统设置的 Quick Look 扩展中关闭 SpaceLens，将 `/Applications/SpaceLens.app` 移到废纸篓。不要删除或禁用 Looq 等其他应用。已保存的验收文件可自行保留或删除，源码仓库不受影响。
+退出 SpaceLens、关闭预览窗口，然后运行 `./scripts/uninstall.sh --remove`。脚本核对应用身份、注销 Quick Look 扩展并将应用移入废纸篓。不要删除或禁用 Looq 等其他应用。已保存的验收文件可自行保留或删除，源码仓库不受影响。
 
 如果系统仍显示旧注册项，可运行：
 
