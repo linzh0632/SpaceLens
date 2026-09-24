@@ -3,7 +3,6 @@ import AppKit
 
 @main
 struct SpaceLensApp: App {
-    @State private var message = "在 Finder 中选中验收文件，按空格查看。"
     var body: some Scene {
         WindowGroup("SpaceLens") {
             VStack(alignment: .leading, spacing: 20) {
@@ -15,8 +14,8 @@ struct SpaceLensApp: App {
                     }
                 }
                 Divider()
-                Text("第一阶段 · 预览接入原型").font(.headline)
-                Text("当前支持 .spacelens 验收文件和文件夹浅层预览。图片、PDF、音视频继续使用系统预览。")
+                Text("第二阶段 · 文件夹与 ZIP").font(.headline)
+                Text("当前支持 .spacelens 验收文件、文件夹树和 ZIP 内容预览。图片、PDF、音视频继续使用系统预览。")
                 Text("如果文件夹仍显示其他预览，请在系统设置的扩展管理中检查 SpaceLens 与现有预览扩展。")
                     .foregroundColor(.secondary)
                 HStack {
@@ -27,7 +26,8 @@ struct SpaceLensApp: App {
                         }
                     }
                 }
-                Text(message).font(.callout).foregroundColor(.secondary).textSelection(.enabled)
+                Text("在 Finder 中选中验收文件、文件夹或 ZIP，按空格查看。")
+                    .font(.callout).foregroundColor(.secondary).textSelection(.enabled)
                 Spacer(minLength: 0)
                 Text("本地处理 · 无需账号 · 无文件上传").font(.caption).foregroundColor(.secondary)
             }
@@ -43,7 +43,11 @@ struct SpaceLensApp: App {
         do {
             try "SpaceLens 验收文件\n\n如果预览顶部出现 SpaceLens · 验收文件，说明我们的扩展已经接管这个文件。\n\n中文、English、emoji 👀\n".write(to: url, atomically: true, encoding: .utf8)
             NSWorkspace.shared.activateFileViewerSelecting([url])
-            message = "已保存 \(url.lastPathComponent)。在 Finder 中按空格。"
-        } catch { message = "保存失败：\(error.localizedDescription)" }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "保存失败"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+        }
     }
 }
