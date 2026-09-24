@@ -23,6 +23,7 @@
 
 - [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)
 - [功能对照与验收矩阵](docs/FEATURE-MATRIX.md)
+- [M7 容器内条目预览（设计稿，未实现）](docs/M7-DESIGN.md)
 - [项目目标与约定](SpaceLens-PREPARATION.md)
 
 ## 开发环境
