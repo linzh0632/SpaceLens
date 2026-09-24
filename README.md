@@ -4,7 +4,7 @@
 
 面向 macOS 的本地快速预览增强工具，保留系统原生预览体验，并以 Super Quick Look 的公开功能为首版对照目标。
 
-**当前状态：M4A 至 M4F 已完成并通过 Finder 视觉验收；M5 日常使用与发布整理正在进行。已实现文件夹、常用归档、文本、代码、配置、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
+**当前状态：M1 至 M5 已完成并通过自动检查与 Finder 实机验收。已实现文件夹、常用归档、文本、代码、配置、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
 
 - [安装、更新与卸载](docs/INSTALL.md)
 - [M1 实测结果与限制](docs/M1-RESULTS.md)
