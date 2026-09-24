@@ -8,7 +8,7 @@
 | 原生格式 | 保留图片、PDF、音视频等系统支持 | 安装前后对照，不抢占通用 UTI |
 | 文件夹 | 层级、数量、深度、修改时间、类型、大小、图标 | M2 已实现可展开树、数量、深度、时间、类型、文件大小、图标和限制 |
 | 归档 | ZIP、TAR、GZ、TGZ、BZ2、TBZ2、XZ、TXZ | M2 已实现 ZIP；M4A 已实现其他列出格式的只读条目、元数据、损坏文件、危险路径和数量上限，Finder 视觉验收已通过 |
-| 文档 | Markdown、MDX、IPYNB、QMD、RMD、RST、AsciiDoc、TeX | M3 已实现安全的基础 Markdown 标题、列表、引用和代码块排版；其他复杂格式留待 M4 |
+| 文档 | Markdown、MDX、IPYNB、QMD、RMD、RST、AsciiDoc、TeX | M3 已实现基础 Markdown；M4C 已实现 MDX/QMD/RMD 排版、RST/AsciiDoc/TeX 结构转换，以及 IPYNB 单元格与已有文本输出预览，Finder 视觉验收已通过 |
 | 图表 | Draw.io、Mermaid/MMD、PlantUML/PUML | 本地渲染、错误提示、离线依赖；不可用时明确回退 |
 | 代码与配置 | 官网展示的源代码、配置、diff、log、SQL、GraphQL 和特殊文件名 | M3 已实现通用本地语法着色、UTF-8/UTF-16 与 5 MiB 上限；无扩展名特殊文件仍需实机逐项注册 |
 | 文本数据 | CSV、TSV、JSON、JSONL、NDJSON、plist | M3 已实现 CSV/TSV 表格和 JSON/JSON Lines 结构树；M4B 已实现 XML、Binary 与 OpenStep plist 结构树、错误提示和读取上限，Finder 视觉验收已通过 |

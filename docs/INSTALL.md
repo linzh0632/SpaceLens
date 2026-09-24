@@ -1,6 +1,6 @@
 # SpaceLens 本机安装与验收
 
-当前为 M4B（0.4.1），支持专用 `.spacelens` 文件、递归文件夹树、ZIP、TAR、GZ/TGZ、BZ2/TBZ2、XZ/TXZ，以及文本、代码、配置、Markdown、CSV/TSV、JSON/JSON Lines、plist 和 SQLite。
+当前为 M4C（0.4.2），支持专用 `.spacelens` 文件、递归文件夹树、常用归档，以及文本、代码、配置、Markdown、CSV/TSV、JSON/JSON Lines、plist、SQLite、MDX、QMD、RMD、RST、AsciiDoc、TeX 和 Jupyter Notebook。
 
 ## 构建与安装
 
@@ -28,7 +28,8 @@
 6. 选择 CSV 和普通 TXT，应继续显示 macOS 原生预览。在 macOS 27 上，这两类文件由系统内置 Office/Text 生成器优先处理，SpaceLens 不强行移除或禁用系统生成器。
 7. 选择 TAR、TGZ、TBZ2、TXZ，应显示 SpaceLens 的可展开归档树；选择独立 GZ/BZ2/XZ，应显示一个压缩数据条目。
 8. 选择 XML 或二进制 plist，应显示可展开的键、类型和值；选择 `.db`、`.sqlite` 或 `.sqlite3`，应显示用户表、列定义和每表最多 100 行只读样本。
-9. 若没有出现，打开系统设置，查找“登录项与扩展”中的 Quick Look，启用 SpaceLens。不同系统版本的入口可能不同。
+9. 选择 MDX、QMD、RMD、RST、AsciiDoc 或 TeX，应显示标题、正文和代码块；选择 IPYNB，应显示 Markdown、代码与文件内已有的文本输出。SpaceLens 不运行 Notebook 单元格。
+10. 若没有出现，打开系统设置，查找“登录项与扩展”中的 Quick Look，启用 SpaceLens。不同系统版本的入口可能不同。
 
 本机已有 Looq。若同类文件被它接管，需要在系统设置中选择预览扩展。SpaceLens 不会自动关闭其他应用的扩展，也不会注册图片、PDF、音视频等通用类型。
 
@@ -63,6 +64,7 @@ pluginkit -r /Applications/SpaceLens.app/Contents/PlugIns/SpaceLensPreview.appex
 - [x] 更新后 Finder 再次预览（用户确认正常）
 - [x] 原生 PNG/PDF/WAV/MOV 预览（用户确认全部正常）
 - [x] XML/Binary plist 与 DB/SQLite/SQLite3 预览（用户确认全部正常）
+- [x] MDX/QMD/RMD/RST/REST/ADOC/ASCIIDOC/TeX/IPYNB 预览（用户确认全部正常）
 - [ ] 整机重启后再预览（未重启用户电脑）
 - [ ] 其他 macOS 版本及 Intel 实机（尚未验证）
 

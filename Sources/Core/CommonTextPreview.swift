@@ -29,9 +29,10 @@ enum CommonTextPreview {
         let filename = url.lastPathComponent.lowercased()
         guard markdownExtensions.contains(ext) || tableExtensions.contains(ext) ||
                 structuredExtensions.contains(ext) || codeExtensions.contains(ext) ||
-                plainExtensions.contains(ext) || specialNames.contains(filename) else {
+                plainExtensions.contains(ext) || DocumentPreview.extensions.contains(ext) || specialNames.contains(filename) else {
             throw PreviewFailure.unsupported
         }
+        if DocumentPreview.extensions.contains(ext) { return try DocumentPreview.load(url, byteLimit: byteLimit) }
         let (source, truncated) = try readText(url, byteLimit: byteLimit)
         try Task.checkCancellation()
         let suffix = truncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""
@@ -53,7 +54,7 @@ enum CommonTextPreview {
             body: source, truncated: truncated, contentKind: kind, language: language)
     }
 
-    private static func readText(_ url: URL, byteLimit: Int) throws -> (String, Bool) {
+    static func readText(_ url: URL, byteLimit: Int) throws -> (String, Bool) {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         let data = try file.read(upToCount: byteLimit + 1) ?? Data()

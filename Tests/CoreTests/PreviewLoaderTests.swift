@@ -222,6 +222,68 @@ final class PreviewLoaderTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("SQLite 数据库无法读取"))
         }
     }
+    func testExtendedMarkdownDocumentFormats() throws {
+        let fixtures: [(String, String)] = [
+            ("component.mdx", "MDX"),
+            ("report.qmd", "Quarto Markdown"),
+            ("analysis.rmd", "R Markdown")
+        ]
+        for (name, format) in fixtures {
+            let result = try PreviewLoader.load(write(name, Data("# 标题\n\n正文".utf8)))
+            XCTAssertEqual(result.contentKind, .markdown, name)
+            XCTAssertTrue(result.summary.contains(format), name)
+            XCTAssertEqual(result.body, "# 标题\n\n正文", name)
+        }
+    }
+    func testRSTAsciiDocAndTeXNormalization() throws {
+        let rst = try PreviewLoader.load(write("guide.rst", Data("标题\n====\n\n.. code-block:: swift\n\n   let value = 42\n\n正文".utf8)))
+        XCTAssertTrue(rst.body.contains("# 标题"))
+        XCTAssertTrue(rst.body.contains("```swift"))
+        XCTAssertTrue(rst.body.contains("let value = 42"))
+
+        let adoc = try PreviewLoader.load(write("guide.adoc", Data("= 标题\n\n[source,swift]\n----\nlet value = 42\n----".utf8)))
+        XCTAssertTrue(adoc.body.contains("# 标题"))
+        XCTAssertTrue(adoc.body.contains("```swift"))
+
+        let tex = try PreviewLoader.load(write("paper.tex", Data("\\section{方法}\n\\begin{verbatim}\nraw <code>\n\\end{verbatim}".utf8)))
+        XCTAssertTrue(tex.body.contains("# 方法"))
+        XCTAssertTrue(tex.body.contains("```text"))
+        XCTAssertTrue(tex.body.contains("raw <code>"))
+    }
+    func testJupyterNotebookRendersCellsWithoutExecution() throws {
+        let notebook: [String: Any] = [
+            "nbformat": 4,
+            "metadata": ["language_info": ["name": "python"]],
+            "cells": [
+                ["cell_type": "markdown", "source": ["# Notebook\n", "本地预览"]],
+                ["cell_type": "code", "source": ["print('hello')"], "outputs": [
+                    ["output_type": "stream", "text": ["hello\n"]],
+                    ["output_type": "display_data", "data": ["image/png": "ignored", "text/plain": ["<Figure 1>"]]]
+                ]],
+                ["cell_type": "raw", "source": "raw content"]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: notebook)
+        let result = try PreviewLoader.load(write("Notebook.ipynb", data))
+        XCTAssertEqual(result.contentKind, .markdown)
+        XCTAssertTrue(result.summary.contains("3 个单元格"))
+        XCTAssertTrue(result.body.contains("```python"))
+        XCTAssertTrue(result.body.contains("print('hello')"))
+        XCTAssertTrue(result.body.contains("hello"))
+        XCTAssertTrue(result.body.contains("<Figure 1>"))
+        XCTAssertFalse(result.body.contains("ignored"))
+    }
+    func testNotebookLimitsAndMalformedInput() throws {
+        let cells = (0..<205).map { ["cell_type": "markdown", "source": "cell-\($0)"] }
+        let data = try JSONSerialization.data(withJSONObject: ["nbformat": 4, "cells": cells])
+        let limited = try PreviewLoader.load(write("Large.ipynb", data))
+        XCTAssertTrue(limited.truncated)
+        XCTAssertTrue(limited.summary.contains("仅显示前 200 个单元格"))
+        XCTAssertFalse(limited.body.contains("cell-204"))
+        XCTAssertThrowsError(try PreviewLoader.load(write("Broken.ipynb", Data("{}".utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("Jupyter Notebook 格式错误"))
+        }
+    }
     func testCommonTextAndCodeClassification() throws {
         let text = try PreviewLoader.load(write("notes.txt", Data("hello\nworld".utf8)))
         XCTAssertEqual(text.contentKind, .text)

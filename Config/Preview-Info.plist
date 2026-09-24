@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.1</string>
+	<string>0.4.2</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -80,6 +80,10 @@
 				<string>com.apple.binary-property-list</string>
 				<string>org.sqlite.sqlite3</string>
 				<string>org.sqlite.database</string>
+				<string>io.github.linzh0632.spacelens.rich-document</string>
+				<string>io.github.linzh0632.spacelens.notebook</string>
+				<string>com.unknown.adoc</string>
+				<string>org.tug.tex</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

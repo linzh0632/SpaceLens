@@ -67,6 +67,10 @@
 				<string>com.apple.binary-property-list</string>
 				<string>org.sqlite.sqlite3</string>
 				<string>org.sqlite.database</string>
+				<string>io.github.linzh0632.spacelens.rich-document</string>
+				<string>io.github.linzh0632.spacelens.notebook</string>
+				<string>com.unknown.adoc</string>
+				<string>org.tug.tex</string>
 			</array>
 		</dict>
 	</array>
@@ -81,9 +85,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.1</string>
+	<string>0.4.2</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHighResolutionCapable</key>
@@ -298,6 +302,25 @@
 					<string>sqlite3</string>
 				</array>
 			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.text</string><string>public.data</string></array>
+			<key>UTTypeDescription</key><string>SpaceLens Rich Document</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.rich-document</string>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array>
+				<string>mdx</string><string>qmd</string><string>rmd</string>
+				<string>rst</string><string>rest</string><string>adoc</string><string>asciidoc</string><string>tex</string>
+			</array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array><string>public.json</string><string>public.data</string></array>
+			<key>UTTypeDescription</key><string>SpaceLens Jupyter Notebook</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.notebook</string>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>ipynb</string></array></dict>
 		</dict>
 	</array>
 </dict>
