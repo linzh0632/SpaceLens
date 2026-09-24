@@ -8,6 +8,7 @@ public struct PreviewSnapshot: Sendable {
         case table
         case structured
         case database
+        case diagram
         case directory
         case zip
         case archive
@@ -78,11 +79,12 @@ public struct PreviewSnapshot: Sendable {
     public let table: TableData?
     public let structuredItems: [StructuredItem]
     public let language: String?
+    public let diagramSVG: String?
 
     public init(title: String, summary: String, body: String, truncated: Bool,
                 contentKind: ContentKind = .text, items: [Item] = [],
                 table: TableData? = nil, structuredItems: [StructuredItem] = [],
-                language: String? = nil) {
+                language: String? = nil, diagramSVG: String? = nil) {
         self.title = title
         self.summary = summary
         self.body = body
@@ -92,6 +94,7 @@ public struct PreviewSnapshot: Sendable {
         self.table = table
         self.structuredItems = structuredItems
         self.language = language
+        self.diagramSVG = diagramSVG
     }
 }
 

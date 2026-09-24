@@ -284,6 +284,49 @@ final class PreviewLoaderTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("Jupyter Notebook 格式错误"))
         }
     }
+    func testMermaidFlowchartRendersEscapedSVG() throws {
+        let source = "flowchart TD\nA[开始] --> B{检查 <script>}\nB -->|成功| C(完成)"
+        let result = try PreviewLoader.load(write("Flow.mmd", Data(source.utf8)))
+        XCTAssertEqual(result.contentKind, .diagram)
+        XCTAssertTrue(result.summary.contains("Mermaid"))
+        XCTAssertTrue(result.diagramSVG?.contains("开始") == true)
+        XCTAssertTrue(result.diagramSVG?.contains("&lt;script&gt;") == true)
+        XCTAssertFalse(result.diagramSVG?.contains("<script>") == true)
+        XCTAssertTrue(result.diagramSVG?.contains("成功") == true)
+    }
+    func testMermaidAndPlantUMLSequenceDiagrams() throws {
+        let mermaid = try PreviewLoader.load(write("Sequence.mermaid", Data("sequenceDiagram\nparticipant Alice\nAlice->>Bob: Hello".utf8)))
+        XCTAssertEqual(mermaid.contentKind, .diagram)
+        XCTAssertTrue(mermaid.diagramSVG?.contains("Alice") == true)
+        XCTAssertTrue(mermaid.diagramSVG?.contains("Bob") == true)
+        XCTAssertTrue(mermaid.diagramSVG?.contains("Hello") == true)
+
+        let plant = try PreviewLoader.load(write("Sequence.puml", Data("@startuml\nAlice -> Bob: Request\nBob --> Alice: Response\n@enduml".utf8)))
+        XCTAssertEqual(plant.contentKind, .diagram)
+        XCTAssertTrue(plant.summary.contains("PlantUML"))
+        XCTAssertTrue(plant.diagramSVG?.contains("Request") == true)
+        XCTAssertTrue(plant.diagramSVG?.contains("Response") == true)
+    }
+    func testUncompressedDrawIORendersShapesAndEdges() throws {
+        let source = #"<mxfile><diagram compressed="false"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="a" value="开始" style="ellipse" vertex="1" parent="1"><mxGeometry x="20" y="30" width="120" height="60" as="geometry"/></mxCell><mxCell id="b" value="结束" vertex="1" parent="1"><mxGeometry x="260" y="30" width="120" height="60" as="geometry"/></mxCell><mxCell id="e" value="下一步" edge="1" source="a" target="b" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>"#
+        let result = try PreviewLoader.load(write("Flow.drawio", Data(source.utf8)))
+        XCTAssertEqual(result.contentKind, .diagram)
+        XCTAssertTrue(result.summary.contains("Draw.io"))
+        XCTAssertTrue(result.diagramSVG?.contains("<ellipse") == true)
+        XCTAssertTrue(result.diagramSVG?.contains("下一步") == true)
+    }
+    func testDiagramErrorsAreExplicit() throws {
+        XCTAssertThrowsError(try PreviewLoader.load(write("Broken.mmd", Data("pie\nA: 1".utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("图表格式错误"))
+        }
+        let compressed = #"<mxfile><diagram>ZY8xDsMgDEWvgnwBklRqF8iSIVMPgYQVkKAgQxty%2BzpKF9TJ3%2F5%2B%2BraKbSWT3TNZDLOilOqsYlswBOGthgFk148gsiF81X9rAvEx4Y0alhQzYSloeYRUsXXgCCe3YopY6RBsTgOIQ8ONy%2B5tdbxzZ%2B3Qb46BB2tTNGw%2F5AyWVzKL62bZPfIF</diagram></mxfile>"#
+        let decoded = try PreviewLoader.load(write("Compressed.drawio", Data(compressed.utf8)))
+        XCTAssertEqual(decoded.contentKind, .diagram)
+        XCTAssertTrue(decoded.diagramSVG?.contains("Compressed") == true)
+        XCTAssertThrowsError(try PreviewLoader.load(write("Broken.drawio", Data(#"<mxfile><diagram>not-valid</diagram></mxfile>"#.utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("Base64") || error.localizedDescription.contains("损坏"))
+        }
+    }
     func testCommonTextAndCodeClassification() throws {
         let text = try PreviewLoader.load(write("notes.txt", Data("hello\nworld".utf8)))
         XCTAssertEqual(text.contentKind, .text)

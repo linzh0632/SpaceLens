@@ -29,10 +29,11 @@ enum CommonTextPreview {
         let filename = url.lastPathComponent.lowercased()
         guard markdownExtensions.contains(ext) || tableExtensions.contains(ext) ||
                 structuredExtensions.contains(ext) || codeExtensions.contains(ext) ||
-                plainExtensions.contains(ext) || DocumentPreview.extensions.contains(ext) || specialNames.contains(filename) else {
+                plainExtensions.contains(ext) || DocumentPreview.extensions.contains(ext) || DiagramPreview.extensions.contains(ext) || specialNames.contains(filename) else {
             throw PreviewFailure.unsupported
         }
         if DocumentPreview.extensions.contains(ext) { return try DocumentPreview.load(url, byteLimit: byteLimit) }
+        if DiagramPreview.extensions.contains(ext) { return try DiagramPreview.load(url, byteLimit: byteLimit) }
         let (source, truncated) = try readText(url, byteLimit: byteLimit)
         try Task.checkCancellation()
         let suffix = truncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""

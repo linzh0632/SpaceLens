@@ -14,6 +14,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private let textScroll = NSScrollView()
     private let dataTable = NSTableView()
     private let dataScroll = NSScrollView()
+    private let diagramImage = NSImageView()
+    private let diagramScroll = NSScrollView()
     private let emptyState = NSTextField(wrappingLabelWithString: "")
     private let logger = Logger(subsystem: "io.github.linzh0632.SpaceLens", category: "preview")
     private var roots: [PreviewNode] = []
@@ -37,6 +39,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         configureOutline()
         configureTextView()
         configureDataTable()
+        configureDiagram()
         emptyState.alignment = .center
         emptyState.font = .systemFont(ofSize: 15)
         emptyState.textColor = .secondaryLabelColor
@@ -44,7 +47,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
         let separator = NSBox()
         separator.boxType = .separator
-        for child in [fileIcon, heading, detail, separator, tableScroll, textScroll, dataScroll, emptyState] {
+        for child in [fileIcon, heading, detail, separator, tableScroll, textScroll, dataScroll, diagramScroll, emptyState] {
             child.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(child)
         }
@@ -74,6 +77,10 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             dataScroll.trailingAnchor.constraint(equalTo: tableScroll.trailingAnchor),
             dataScroll.topAnchor.constraint(equalTo: tableScroll.topAnchor),
             dataScroll.bottomAnchor.constraint(equalTo: tableScroll.bottomAnchor),
+            diagramScroll.leadingAnchor.constraint(equalTo: tableScroll.leadingAnchor),
+            diagramScroll.trailingAnchor.constraint(equalTo: tableScroll.trailingAnchor),
+            diagramScroll.topAnchor.constraint(equalTo: tableScroll.topAnchor),
+            diagramScroll.bottomAnchor.constraint(equalTo: tableScroll.bottomAnchor),
             emptyState.centerXAnchor.constraint(equalTo: tableScroll.centerXAnchor),
             emptyState.centerYAnchor.constraint(equalTo: tableScroll.centerYAnchor),
             emptyState.widthAnchor.constraint(lessThanOrEqualTo: tableScroll.widthAnchor, constant: -80)
@@ -155,6 +162,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         dataScroll.isHidden = true
     }
 
+    private func configureDiagram() {
+        diagramImage.imageScaling = .scaleProportionallyUpOrDown
+        diagramImage.imageAlignment = .alignCenter
+        diagramScroll.documentView = diagramImage
+        diagramScroll.hasVerticalScroller = true
+        diagramScroll.hasHorizontalScroller = true
+        diagramScroll.autohidesScrollers = true
+        diagramScroll.borderType = .lineBorder
+        diagramScroll.backgroundColor = .white
+        diagramScroll.drawsBackground = true
+        diagramScroll.isHidden = true
+    }
+
     func preparePreviewOfFile(at url: URL) async throws {
         _ = view
         let request = UUID()
@@ -186,6 +206,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         tableScroll.isHidden = true
         textScroll.isHidden = true
         dataScroll.isHidden = true
+        diagramScroll.isHidden = true
         emptyState.stringValue = "正在读取预览…"
         emptyState.isHidden = false
     }
@@ -194,6 +215,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         heading.stringValue = snapshot.title
         detail.stringValue = snapshot.summary
         emptyState.isHidden = true
+        diagramScroll.isHidden = true
         switch snapshot.contentKind {
         case .directory, .zip, .archive:
             configureOutlineColumns(name: "名称", kind: "类型", value: "大小")
@@ -235,6 +257,20 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             dataScroll.isHidden = false
             tableScroll.isHidden = true
             textScroll.isHidden = true
+        case .diagram:
+            fileIcon.image = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted", accessibilityDescription: nil)
+            fileIcon.contentTintColor = .systemCyan
+            guard let svg = snapshot.diagramSVG, let image = NSImage(data: Data(svg.utf8)) else {
+                renderError(PreviewFailure.malformedText("图表 SVG 无法显示。"))
+                return
+            }
+            diagramImage.image = image
+            diagramImage.frame = NSRect(origin: .zero,
+                size: NSSize(width: max(780, image.size.width), height: max(500, image.size.height)))
+            diagramScroll.isHidden = false
+            tableScroll.isHidden = true
+            textScroll.isHidden = true
+            dataScroll.isHidden = true
         case .text, .code, .markdown:
             fileIcon.image = NSImage(systemSymbolName: "doc.text.fill", accessibilityDescription: nil)
             fileIcon.contentTintColor = snapshot.contentKind == .markdown ? .systemIndigo : .systemBlue
@@ -271,6 +307,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         tableScroll.isHidden = true
         textScroll.isHidden = true
         dataScroll.isHidden = true
+        diagramScroll.isHidden = true
         emptyState.stringValue = error.localizedDescription
         emptyState.isHidden = false
     }

@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.2</string>
+	<string>0.4.3</string>
 	<key>CFBundleVersion</key>
-	<string>8</string>
+	<string>9</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -84,6 +84,9 @@
 				<string>io.github.linzh0632.spacelens.notebook</string>
 				<string>com.unknown.adoc</string>
 				<string>org.tug.tex</string>
+				<string>io.github.linzh0632.spacelens.diagram-text</string>
+				<string>io.github.linzh0632.spacelens.drawio</string>
+				<string>com.jgraph.drawio.diagram</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

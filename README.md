@@ -4,7 +4,7 @@
 
 面向 macOS 的本地快速预览增强工具，保留系统原生预览体验，并以 Super Quick Look 的公开功能为首版对照目标。
 
-**当前状态：M4A、M4B 已完成；M4C 的扩展文档与 Jupyter Notebook 预览已完成并通过 Finder 视觉验收。已实现文件夹、常用归档、文本、代码、Markdown、CSV/TSV、JSON、plist、SQLite，以及 MDX、QMD、RMD、RST、AsciiDoc、TeX 和 IPYNB 预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
+**当前状态：M4A、M4B、M4C 已完成；M4D 图表预览已完成并通过 Finder 视觉验收。已实现文件夹、常用归档、文本、代码、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML 和 Draw.io 的轻量本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
 
 - [安装、更新与卸载](docs/INSTALL.md)
 - [M1 实测结果与限制](docs/M1-RESULTS.md)
@@ -13,6 +13,7 @@
 - [M4A 范围与验收](docs/M4A-RESULTS.md)
 - [M4B 范围与验收](docs/M4B-RESULTS.md)
 - [M4C 范围与验收](docs/M4C-RESULTS.md)
+- [M4D 范围与验收](docs/M4D-RESULTS.md)
 
 - [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)
 - [功能对照与验收矩阵](docs/FEATURE-MATRIX.md)
