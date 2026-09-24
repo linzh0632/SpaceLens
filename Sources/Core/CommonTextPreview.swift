@@ -13,11 +13,16 @@ enum CommonTextPreview {
         "c", "cc", "cpp", "cxx", "h", "hpp", "m", "mm", "swift", "py", "rb", "go", "rs",
         "java", "kt", "kts", "js", "jsx", "ts", "tsx", "css", "scss", "sass", "less", "html",
         "htm", "xml", "sh", "bash", "zsh", "fish", "ps1", "lua", "php", "r", "dart", "scala",
-        "sql", "graphql", "gql", "yaml", "yml", "toml", "ini", "conf", "config", "env", "diff", "patch"
+        "sql", "graphql", "gql", "yaml", "yml", "toml", "ini", "conf", "config", "env", "diff", "patch",
+        "asm", "awk", "bat", "bazel", "bzl", "cmake", "cmd", "coffee", "cr", "d", "f", "f03", "f08",
+        "f90", "f95", "for", "gd", "gradle", "groovy", "hcl", "hs", "jl", "lhs", "litcoffee", "log",
+        "ml", "mli", "nim", "nu", "proto", "raku", "rakumod", "rakutest", "rkt", "s", "scm", "sol",
+        "ss", "star", "sv", "svh", "tcl", "tf", "tfvars", "v", "vh", "xsd", "xsl", "xslt", "zig"
     ]
     private static let plainExtensions: Set<String> = ["txt", "text", "log"]
     private static let specialNames: Set<String> = [
-        "dockerfile", "makefile", "gemfile", "podfile", "rakefile", "license", "readme", ".gitignore", ".gitattributes", ".editorconfig"
+        "dockerfile", "makefile", "gemfile", "podfile", "rakefile", "license", "readme", "cmakelists.txt",
+        "build", "workspace", ".gitignore", ".gitattributes", ".editorconfig"
     ]
     private static let maximumRows = 1_000
     private static let maximumColumns = 100
@@ -218,11 +223,30 @@ enum CommonTextPreview {
     }
 
     private static func languageName(extension ext: String, filename: String) -> String {
-        if specialNames.contains(filename) { return filename.hasPrefix(".") ? "配置" : filename.capitalized }
-        let names = ["py": "Python", "js": "JavaScript", "ts": "TypeScript", "rb": "Ruby",
-                     "rs": "Rust", "cpp": "C++", "cxx": "C++", "sh": "Shell", "bash": "Shell",
-                     "zsh": "Shell", "yml": "YAML", "yaml": "YAML", "toml": "TOML",
-                     "diff": "Diff", "patch": "Patch", "graphql": "GraphQL", "gql": "GraphQL"]
+        let specialLanguages = [
+            "dockerfile": "Dockerfile", "makefile": "Makefile", "gemfile": "Ruby", "podfile": "Ruby",
+            "rakefile": "Ruby", "license": "License", "readme": "README", "cmakelists.txt": "CMake",
+            "build": "Bazel", "workspace": "Bazel", ".gitignore": "Git", ".gitattributes": "Git",
+            ".editorconfig": "EditorConfig"
+        ]
+        if let special = specialLanguages[filename] { return special }
+        let names = [
+            "py": "Python", "js": "JavaScript", "ts": "TypeScript", "rb": "Ruby", "rs": "Rust",
+            "cpp": "C++", "cxx": "C++", "sh": "Shell", "bash": "Shell", "zsh": "Shell",
+            "yml": "YAML", "yaml": "YAML", "toml": "TOML", "diff": "Diff", "patch": "Patch",
+            "graphql": "GraphQL", "gql": "GraphQL", "asm": "Assembly", "s": "Assembly",
+            "awk": "AWK", "bat": "Batch", "cmd": "Batch", "bazel": "Bazel", "bzl": "Bazel",
+            "star": "Starlark", "cmake": "CMake", "coffee": "CoffeeScript", "litcoffee": "Literate CoffeeScript",
+            "cr": "Crystal", "d": "D", "f": "Fortran", "f03": "Fortran", "f08": "Fortran",
+            "f90": "Fortran", "f95": "Fortran", "for": "Fortran", "gd": "GDScript",
+            "gradle": "Gradle", "groovy": "Groovy", "hcl": "HCL", "hs": "Haskell", "lhs": "Haskell",
+            "jl": "Julia", "ml": "OCaml", "mli": "OCaml", "nim": "Nim", "nu": "Nushell",
+            "proto": "Protocol Buffers", "raku": "Raku", "rakumod": "Raku", "rakutest": "Raku",
+            "rkt": "Racket", "scm": "Scheme", "ss": "Scheme", "sol": "Solidity", "sv": "SystemVerilog",
+            "svh": "SystemVerilog", "v": "Verilog", "vh": "Verilog", "tcl": "Tcl",
+            "tf": "Terraform", "tfvars": "Terraform", "xsd": "XML Schema", "xsl": "XSLT",
+            "xslt": "XSLT", "zig": "Zig"
+        ]
         return names[ext] ?? (ext.isEmpty ? "代码" : ext.uppercased())
     }
 

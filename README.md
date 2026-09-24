@@ -4,7 +4,7 @@
 
 面向 macOS 的本地快速预览增强工具，保留系统原生预览体验，并以 Super Quick Look 的公开功能为首版对照目标。
 
-**当前状态：M4A、M4B、M4C 已完成；M4D 图表预览已完成并通过 Finder 视觉验收；M4E 列式数据预览已完成并通过 Finder 视觉验收。已实现文件夹、常用归档、文本、代码、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
+**当前状态：M4A 至 M4E 已完成并通过 Finder 视觉验收；M4F 代码与配置格式扩展已完成并通过 Finder 视觉验收。已实现文件夹、常用归档、文本、代码、配置、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
 
 - [安装、更新与卸载](docs/INSTALL.md)
 - [M1 实测结果与限制](docs/M1-RESULTS.md)
@@ -15,6 +15,7 @@
 - [M4C 范围与验收](docs/M4C-RESULTS.md)
 - [M4D 范围与验收](docs/M4D-RESULTS.md)
 - [M4E 范围与验收](docs/M4E-RESULTS.md)
+- [M4F 范围与验收](docs/M4F-RESULTS.md)
 - [文件类型与默认打开应用审计](docs/FILE-ASSOCIATIONS.md)
 
 - [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)

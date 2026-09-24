@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.5</string>
+	<string>0.4.6</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>12</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -58,6 +58,17 @@
 				<string>public.shell-script</string>
 				<string>public.toml</string>
 				<string>com.microsoft.typescript</string>
+				<string>public.make-source</string>
+				<string>public.assembly-source</string>
+				<string>public.fortran-source</string>
+				<string>public.fortran-90-source</string>
+				<string>public.fortran-95-source</string>
+				<string>org.codehaus.groovy-source</string>
+				<string>org.haskell.haskell-source</string>
+				<string>com.unknown.lhs</string>
+				<string>org.ocaml.ocaml-source</string>
+				<string>public.protobuf-source</string>
+				<string>com.looq.xml</string>
 				<string>public.xml</string>
 				<string>public.yaml</string>
 				<string>public.zsh-script</string>

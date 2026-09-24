@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.5</string>
+	<string>0.4.6</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>12</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHighResolutionCapable</key>
@@ -128,6 +128,55 @@
 					<string>env</string>
 					<string>diff</string>
 					<string>patch</string>
+					<string>asm</string>
+					<string>awk</string>
+					<string>bat</string>
+					<string>bazel</string>
+					<string>bzl</string>
+					<string>cmake</string>
+					<string>cmd</string>
+					<string>coffee</string>
+					<string>cr</string>
+					<string>d</string>
+					<string>f</string>
+					<string>f03</string>
+					<string>f08</string>
+					<string>f90</string>
+					<string>f95</string>
+					<string>for</string>
+					<string>gd</string>
+					<string>gradle</string>
+					<string>groovy</string>
+					<string>hcl</string>
+					<string>hs</string>
+					<string>jl</string>
+					<string>lhs</string>
+					<string>litcoffee</string>
+					<string>ml</string>
+					<string>mli</string>
+					<string>nim</string>
+					<string>nu</string>
+					<string>proto</string>
+					<string>raku</string>
+					<string>rakumod</string>
+					<string>rakutest</string>
+					<string>rkt</string>
+					<string>s</string>
+					<string>scm</string>
+					<string>sol</string>
+					<string>ss</string>
+					<string>star</string>
+					<string>sv</string>
+					<string>svh</string>
+					<string>tcl</string>
+					<string>tf</string>
+					<string>tfvars</string>
+					<string>v</string>
+					<string>vh</string>
+					<string>xsd</string>
+					<string>xsl</string>
+					<string>xslt</string>
+					<string>zig</string>
 				</array>
 			</dict>
 		</dict>
