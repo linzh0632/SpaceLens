@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.4</string>
+	<string>0.4.5</string>
 	<key>CFBundleVersion</key>
-	<string>10</string>
+	<string>11</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSExtension</key>
@@ -29,11 +29,11 @@
 			<key>QLSupportedContentTypes</key>
 			<array>
 				<string>io.github.linzh0632.spacelens.sample</string>
-				<string>io.github.linzh0632.spacelens.markdown</string>
-				<string>io.github.linzh0632.spacelens.code</string>
-				<string>io.github.linzh0632.spacelens.structured-text</string>
-				<string>io.github.linzh0632.spacelens.table-text</string>
-				<string>io.github.linzh0632.spacelens.plain-text</string>
+				<string>io.github.linzh0632.spacelens.preview.markdown</string>
+				<string>io.github.linzh0632.spacelens.preview.source-configuration</string>
+				<string>io.github.linzh0632.spacelens.preview.structured-text</string>
+				<string>io.github.linzh0632.spacelens.preview.delimited-table</string>
+				<string>io.github.linzh0632.spacelens.preview.plain-text</string>
 				<string>public.folder</string>
 				<string>public.zip-archive</string>
 				<string>public.plain-text</string>
@@ -66,7 +66,7 @@
 				<string>public.ndjson</string>
 				<string>public.comma-separated-values-text</string>
 				<string>public.tab-separated-values-text</string>
-				<string>io.github.linzh0632.spacelens.archive</string>
+				<string>io.github.linzh0632.spacelens.preview.archive</string>
 				<string>public.tar-archive</string>
 				<string>org.gnu.gnu-zip-tar-archive</string>
 				<string>public.tar-bzip2-archive</string>
@@ -74,18 +74,18 @@
 				<string>org.gnu.gnu-zip-archive</string>
 				<string>public.bzip2-archive</string>
 				<string>org.tukaani.xz-archive</string>
-				<string>io.github.linzh0632.spacelens.sqlite</string>
+				<string>io.github.linzh0632.spacelens.preview.sqlite</string>
 				<string>com.apple.property-list</string>
 				<string>com.apple.xml-property-list</string>
 				<string>com.apple.binary-property-list</string>
 				<string>org.sqlite.sqlite3</string>
 				<string>org.sqlite.database</string>
-				<string>io.github.linzh0632.spacelens.rich-document</string>
-				<string>io.github.linzh0632.spacelens.notebook</string>
+				<string>io.github.linzh0632.spacelens.preview.technical-document</string>
+				<string>io.github.linzh0632.spacelens.preview.jupyter-notebook</string>
 				<string>com.unknown.adoc</string>
 				<string>org.tug.tex</string>
-				<string>io.github.linzh0632.spacelens.diagram-text</string>
-				<string>io.github.linzh0632.spacelens.drawio</string>
+				<string>io.github.linzh0632.spacelens.preview.text-diagram</string>
+				<string>io.github.linzh0632.spacelens.preview.drawio</string>
 				<string>com.jgraph.drawio.diagram</string>
 				<string>io.github.linzh0632.spacelens.parquet</string>
 				<string>io.github.linzh0632.spacelens.arrow-ipc</string>

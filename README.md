@@ -15,6 +15,7 @@
 - [M4C 范围与验收](docs/M4C-RESULTS.md)
 - [M4D 范围与验收](docs/M4D-RESULTS.md)
 - [M4E 范围与验收](docs/M4E-RESULTS.md)
+- [文件类型与默认打开应用审计](docs/FILE-ASSOCIATIONS.md)
 
 - [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)
 - [功能对照与验收矩阵](docs/FEATURE-MATRIX.md)

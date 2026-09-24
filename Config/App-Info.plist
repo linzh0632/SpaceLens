@@ -4,83 +4,6 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>SpaceLens Acceptance Sample</string>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Alternate</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>io.github.linzh0632.spacelens.sample</string>
-				<string>io.github.linzh0632.spacelens.markdown</string>
-				<string>io.github.linzh0632.spacelens.code</string>
-				<string>io.github.linzh0632.spacelens.structured-text</string>
-				<string>io.github.linzh0632.spacelens.table-text</string>
-				<string>io.github.linzh0632.spacelens.plain-text</string>
-				<string>public.folder</string>
-				<string>public.zip-archive</string>
-				<string>public.plain-text</string>
-				<string>net.daringfireball.markdown</string>
-				<string>public.swift-source</string>
-				<string>public.bash-script</string>
-				<string>public.c-source</string>
-				<string>public.c-plus-plus-source</string>
-				<string>public.c-header</string>
-				<string>public.c-plus-plus-header</string>
-				<string>public.objective-c-source</string>
-				<string>public.objective-c-plus-plus-source</string>
-				<string>public.css</string>
-				<string>public.patch-file</string>
-				<string>public.html</string>
-				<string>com.sun.java-source</string>
-				<string>com.netscape.javascript-source</string>
-				<string>org.tug.lua</string>
-				<string>public.php-script</string>
-				<string>public.python-script</string>
-				<string>public.ruby-script</string>
-				<string>public.shell-script</string>
-				<string>public.toml</string>
-				<string>com.microsoft.typescript</string>
-				<string>public.xml</string>
-				<string>public.yaml</string>
-				<string>public.zsh-script</string>
-				<string>com.apple.log</string>
-				<string>public.json</string>
-				<string>public.ndjson</string>
-				<string>public.comma-separated-values-text</string>
-				<string>public.tab-separated-values-text</string>
-				<string>io.github.linzh0632.spacelens.archive</string>
-				<string>public.tar-archive</string>
-				<string>org.gnu.gnu-zip-tar-archive</string>
-				<string>public.tar-bzip2-archive</string>
-				<string>org.tukaani.tar-xz-archive</string>
-				<string>org.gnu.gnu-zip-archive</string>
-				<string>public.bzip2-archive</string>
-				<string>org.tukaani.xz-archive</string>
-				<string>io.github.linzh0632.spacelens.sqlite</string>
-				<string>com.apple.property-list</string>
-				<string>com.apple.xml-property-list</string>
-				<string>com.apple.binary-property-list</string>
-				<string>org.sqlite.sqlite3</string>
-				<string>org.sqlite.database</string>
-				<string>io.github.linzh0632.spacelens.rich-document</string>
-				<string>io.github.linzh0632.spacelens.notebook</string>
-				<string>com.unknown.adoc</string>
-				<string>org.tug.tex</string>
-				<string>io.github.linzh0632.spacelens.diagram-text</string>
-				<string>io.github.linzh0632.spacelens.drawio</string>
-				<string>com.jgraph.drawio.diagram</string>
-				<string>io.github.linzh0632.spacelens.parquet</string>
-				<string>io.github.linzh0632.spacelens.arrow-ipc</string>
-				<string>io.github.linzh0632.spacelens.feather</string>
-				<string>io.github.linzh0632.spacelens.avro</string>
-			</array>
-		</dict>
-	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -92,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.4</string>
+	<string>0.4.5</string>
 	<key>CFBundleVersion</key>
-	<string>10</string>
+	<string>11</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHighResolutionCapable</key>
@@ -120,6 +43,9 @@
 				</array>
 			</dict>
 		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
@@ -127,9 +53,9 @@
 				<string>public.plain-text</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens Markdown</string>
+			<string>Markdown Document</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.markdown</string>
+			<string>io.github.linzh0632.spacelens.preview.markdown</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -146,9 +72,9 @@
 				<string>public.plain-text</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens Source and Configuration</string>
+			<string>Source or Configuration File</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.code</string>
+			<string>io.github.linzh0632.spacelens.preview.source-configuration</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -212,9 +138,9 @@
 				<string>public.plain-text</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens Structured Text</string>
+			<string>Structured Text Document</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.structured-text</string>
+			<string>io.github.linzh0632.spacelens.preview.structured-text</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -234,9 +160,9 @@
 				<string>public.plain-text</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens Delimited Table</string>
+			<string>Delimited Text Table</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.table-text</string>
+			<string>io.github.linzh0632.spacelens.preview.delimited-table</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -252,9 +178,9 @@
 				<string>public.plain-text</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens Plain Text</string>
+			<string>Plain Text Document</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.plain-text</string>
+			<string>io.github.linzh0632.spacelens.preview.plain-text</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -272,9 +198,9 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens Archive</string>
+			<string>Archive</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.archive</string>
+			<string>io.github.linzh0632.spacelens.preview.archive</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -297,9 +223,9 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>SpaceLens SQLite Database</string>
+			<string>SQLite Database</string>
 			<key>UTTypeIdentifier</key>
-			<string>io.github.linzh0632.spacelens.sqlite</string>
+			<string>io.github.linzh0632.spacelens.preview.sqlite</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -313,8 +239,8 @@
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array><string>public.text</string><string>public.data</string></array>
-			<key>UTTypeDescription</key><string>SpaceLens Rich Document</string>
-			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.rich-document</string>
+			<key>UTTypeDescription</key><string>Technical Document</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.preview.technical-document</string>
 			<key>UTTypeTagSpecification</key>
 			<dict><key>public.filename-extension</key><array>
 				<string>mdx</string><string>qmd</string><string>rmd</string>
@@ -324,23 +250,23 @@
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array><string>public.json</string><string>public.data</string></array>
-			<key>UTTypeDescription</key><string>SpaceLens Jupyter Notebook</string>
-			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.notebook</string>
+			<key>UTTypeDescription</key><string>Jupyter Notebook</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.preview.jupyter-notebook</string>
 			<key>UTTypeTagSpecification</key>
 			<dict><key>public.filename-extension</key><array><string>ipynb</string></array></dict>
 		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
-			<key>UTTypeDescription</key><string>SpaceLens Text Diagram</string>
-			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.diagram-text</string>
+			<key>UTTypeDescription</key><string>Text Diagram</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.preview.text-diagram</string>
 			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array>
 				<string>mermaid</string><string>mmd</string><string>puml</string><string>plantuml</string>
 			</array></dict>
 		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key><array><string>public.xml</string><string>public.data</string></array>
-			<key>UTTypeDescription</key><string>SpaceLens Draw.io Diagram</string>
-			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.drawio</string>
+			<key>UTTypeDescription</key><string>Draw.io Diagram</string>
+			<key>UTTypeIdentifier</key><string>io.github.linzh0632.spacelens.preview.drawio</string>
 			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>drawio</string></array></dict>
 		</dict>
 		<dict>

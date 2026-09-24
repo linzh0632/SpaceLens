@@ -456,6 +456,39 @@ final class PreviewLoaderTests: XCTestCase {
         do { _ = try await task.value; XCTFail("Expected cancellation") }
         catch { XCTAssertTrue(error is CancellationError) }
     }
+    func testHostAppIsPreviewOnlyAndCustomKindsAreNeutral() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let appData = try Data(contentsOf: root.appendingPathComponent("Config/App-Info.plist"))
+        let appInfo = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: appData, format: nil) as? [String: Any]
+        )
+
+        XCTAssertNil(appInfo["CFBundleDocumentTypes"], "The host app must never register as a document opener")
+
+        let exported = try XCTUnwrap(appInfo["UTExportedTypeDeclarations"] as? [[String: Any]])
+        XCTAssertEqual(exported.compactMap { $0["UTTypeIdentifier"] as? String }, ["io.github.linzh0632.spacelens.sample"])
+
+        let imported = try XCTUnwrap(appInfo["UTImportedTypeDeclarations"] as? [[String: Any]])
+        XCTAssertFalse(imported.isEmpty)
+        for declaration in imported {
+            let description = try XCTUnwrap(declaration["UTTypeDescription"] as? String)
+            XCTAssertFalse(description.localizedCaseInsensitiveContains("SpaceLens"), description)
+        }
+
+        let previewData = try Data(contentsOf: root.appendingPathComponent("Config/Preview-Info.plist"))
+        let previewInfo = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: previewData, format: nil) as? [String: Any]
+        )
+        let extensionInfo = try XCTUnwrap(previewInfo["NSExtension"] as? [String: Any])
+        let attributes = try XCTUnwrap(extensionInfo["NSExtensionAttributes"] as? [String: Any])
+        let supported = Set(try XCTUnwrap(attributes["QLSupportedContentTypes"] as? [String]))
+        let declared = Set((exported + imported).compactMap { $0["UTTypeIdentifier"] as? String })
+        XCTAssertTrue(declared.isSubset(of: supported), "Every custom type must remain available to Quick Look")
+    }
+
 }
 
 private struct ZipEntry {
