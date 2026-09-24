@@ -1,1 +1,0 @@
-SpaceLens folder access fixture.

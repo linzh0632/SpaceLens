@@ -73,7 +73,7 @@ pluginkit -r /Applications/SpaceLens.app/Contents/PlugIns/SpaceLensPreview.appex
 - [x] 92 个文件及文件夹样例的默认打开应用审计（SpaceLens 未接管任何双击打开操作）
 - [x] Zig、Fortran、Protocol Buffers、Terraform、SystemVerilog 与 Makefile 预览（用户确认全部正常）
 - [x] 文件夹、ZIP 与归档列表的“修改时间”列，日期跟随系统首选界面语言（用户确认）
-- [ ] 整机重启后再预览（未重启用户电脑）
+- [x] 整机重启后 Quick Look 预览正常（用户实机确认）
 - [ ] 其他 macOS 版本及 Intel 实机（尚未验证）
 
 原生图片/PDF/音频/视频样例可用 `xcrun swift scripts/create-native-fixtures.swift build/NativeFixtures` 生成。视频生成器使用兼容旧 SDK 的 API，在 macOS 27 上会给出弃用警告，不影响产品代码。生成文件不进入仓库。
