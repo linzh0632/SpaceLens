@@ -173,6 +173,55 @@ final class PreviewLoaderTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("归档文件已损坏"))
         }
     }
+    func testXMLAndBinaryPropertyLists() throws {
+        let value: [String: Any] = [
+            "enabled": true,
+            "items": ["one", "two"],
+            "limits": ["rows": 100],
+            "payload": Data([0x00, 0x01, 0x02]),
+            "created": Date(timeIntervalSince1970: 1_700_000_000)
+        ]
+        for (name, format) in [("Config.plist", PropertyListSerialization.PropertyListFormat.xml),
+                               ("Binary.plist", .binary)] {
+            let data = try PropertyListSerialization.data(fromPropertyList: value, format: format, options: 0)
+            let result = try PreviewLoader.load(write(name, data))
+            XCTAssertEqual(result.contentKind, .structured, name)
+            XCTAssertEqual(result.structuredItems.first?.type, "字典", name)
+            XCTAssertEqual(result.structuredItems.first?.children.map(\.key),
+                           ["created", "enabled", "items", "limits", "payload"], name)
+            XCTAssertTrue(result.summary.contains(format == .binary ? "Binary plist" : "XML plist"), name)
+        }
+    }
+    func testMalformedPropertyListIsExplicit() throws {
+        XCTAssertThrowsError(try PreviewLoader.load(write("broken.plist", Data("<plist>".utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("属性列表格式错误"))
+        }
+    }
+    func testSQLiteSchemaRowsAndReadOnlyLimits() throws {
+        let url = try makeSQLite("Sample.sqlite", statements: [
+            "CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT NOT NULL, payload BLOB)",
+            "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<105) INSERT INTO people(name,payload) SELECT 'person-'||x, x'0001' FROM n",
+            "CREATE TABLE \"odd\"\"name\"(\"value\" TEXT)",
+            "INSERT INTO \"odd\"\"name\" VALUES ('quoted identifier')"
+        ])
+        let result = try PreviewLoader.load(url)
+        XCTAssertEqual(result.contentKind, .database)
+        XCTAssertEqual(result.structuredItems.map(\.key), ["odd\"name", "people"])
+        let people = result.structuredItems.first { $0.key == "people" }
+        XCTAssertEqual(people?.children.first?.children.count, 3)
+        XCTAssertEqual(people?.children.last?.children.count, 100)
+        XCTAssertTrue(people?.children.last?.type.contains("仅显示前 100 行") == true)
+        XCTAssertTrue(result.truncated)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path + "-journal"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path + "-wal"))
+    }
+    func testEmptyAndDamagedSQLite() throws {
+        let empty = try makeSQLite("Empty.db", statements: [])
+        XCTAssertTrue(try PreviewLoader.load(empty).structuredItems.isEmpty)
+        XCTAssertThrowsError(try PreviewLoader.load(write("Broken.sqlite3", Data("not sqlite".utf8)))) { error in
+            XCTAssertTrue(error.localizedDescription.contains("SQLite 数据库无法读取"))
+        }
+    }
     func testCommonTextAndCodeClassification() throws {
         let text = try PreviewLoader.load(write("notes.txt", Data("hello\nworld".utf8)))
         XCTAssertEqual(text.contentKind, .text)
@@ -258,6 +307,25 @@ private struct TarEntry {
 }
 
 private extension PreviewLoaderTests {
+    func makeSQLite(_ name: String, statements: [String]) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        var database: OpaquePointer?
+        let status = url.path.withCString {
+            test_sqlite3_open_v2($0, &database, 0x0000_0002 | 0x0000_0004, nil)
+        }
+        guard status == 0, let database else { throw NSError(domain: "SQLiteFixture", code: Int(status)) }
+        defer { _ = test_sqlite3_close_v2(database) }
+        for sql in statements {
+            var statement: OpaquePointer?
+            let prepared = sql.withCString { test_sqlite3_prepare_v2(database, $0, -1, &statement, nil) }
+            guard prepared == 0, let statement else { throw NSError(domain: "SQLiteFixture", code: Int(prepared)) }
+            defer { _ = test_sqlite3_finalize(statement) }
+            let stepped = test_sqlite3_step(statement)
+            guard stepped == 101 else { throw NSError(domain: "SQLiteFixture", code: Int(stepped)) }
+        }
+        return url
+    }
+
     func makeTar(_ entries: [TarEntry]) -> Data {
         var archive = Data()
         for entry in entries {
@@ -313,6 +381,12 @@ private extension PreviewLoaderTests {
         return try write(name, archive)
     }
 }
+
+@_silgen_name("sqlite3_open_v2") private func test_sqlite3_open_v2(_ filename: UnsafePointer<CChar>?, _ database: UnsafeMutablePointer<OpaquePointer?>?, _ flags: Int32, _ vfs: UnsafePointer<CChar>?) -> Int32
+@_silgen_name("sqlite3_close_v2") private func test_sqlite3_close_v2(_ database: OpaquePointer?) -> Int32
+@_silgen_name("sqlite3_prepare_v2") private func test_sqlite3_prepare_v2(_ database: OpaquePointer?, _ sql: UnsafePointer<CChar>?, _ bytes: Int32, _ statement: UnsafeMutablePointer<OpaquePointer?>?, _ tail: UnsafeMutablePointer<UnsafePointer<CChar>?>?) -> Int32
+@_silgen_name("sqlite3_step") private func test_sqlite3_step(_ statement: OpaquePointer?) -> Int32
+@_silgen_name("sqlite3_finalize") private func test_sqlite3_finalize(_ statement: OpaquePointer?) -> Int32
 
 private extension Data {
     mutating func writeASCII(_ value: String, at offset: Int, length: Int) {

@@ -211,16 +211,21 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
                 emptyState.stringValue = isArchive ? "这个归档中没有可显示的条目。" : "这是一个空文件夹。"
                 emptyState.isHidden = false
             }
-        case .structured:
+        case .structured, .database:
             configureOutlineColumns(name: "键", kind: "类型", value: "值")
-            fileIcon.image = NSImage(systemSymbolName: "curlybraces", accessibilityDescription: nil)
-            fileIcon.contentTintColor = .systemPurple
+            let isDatabase = snapshot.contentKind == .database
+            fileIcon.image = NSImage(systemSymbolName: isDatabase ? "cylinder.split.1x2.fill" : "curlybraces", accessibilityDescription: nil)
+            fileIcon.contentTintColor = isDatabase ? .systemTeal : .systemPurple
             roots = PreviewNode.makeStructuredTree(from: snapshot.structuredItems)
             outline.reloadData()
             outline.expandItem(nil, expandChildren: true)
-            tableScroll.isHidden = false
+            tableScroll.isHidden = roots.isEmpty
             textScroll.isHidden = true
             dataScroll.isHidden = true
+            if roots.isEmpty {
+                emptyState.stringValue = isDatabase ? "数据库中没有用户表。" : "没有可显示的结构。"
+                emptyState.isHidden = false
+            }
         case .table:
             fileIcon.image = NSImage(systemSymbolName: "tablecells.fill", accessibilityDescription: nil)
             fileIcon.contentTintColor = .systemGreen
