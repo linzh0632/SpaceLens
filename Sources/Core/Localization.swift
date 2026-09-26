@@ -56,8 +56,8 @@ public enum L10n {
     }
 
     /// Counts a noun: English needs a plural form, Chinese uses one wording.
-    public static func count(_ value: Int, _ chineseUnit: String,
-                             _ singular: String, _ plural: String) -> String {
+    public static func count<T: BinaryInteger>(_ value: T, _ chineseUnit: String,
+                                               _ singular: String, _ plural: String) -> String {
         "\(value) \(isEnglish ? (value == 1 ? singular : plural) : chineseUnit)"
     }
 

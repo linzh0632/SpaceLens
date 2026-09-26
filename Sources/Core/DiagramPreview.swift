@@ -19,7 +19,7 @@ enum DiagramPreview {
         default: throw PreviewFailure.unsupported
         }
         return PreviewSnapshot(title: name,
-            summary: L10n.text("SpaceLens · \(result.format) · \(result.elementCount) 个元素 · 本地安全渲染", "SpaceLens · \(result.format) · \(result.elementCount) elements · rendered safely on this Mac"),
+            summary: L10n.text("SpaceLens · \(result.format) · \(L10n.count(result.elementCount, "个元素", "element", "elements")) · 本地安全渲染", "SpaceLens · \(result.format) · \(L10n.count(result.elementCount, "个元素", "element", "elements")) · rendered safely on this Mac"),
             body: source, truncated: result.truncated, contentKind: .diagram,
             language: result.format, diagramSVG: result.svg)
     }

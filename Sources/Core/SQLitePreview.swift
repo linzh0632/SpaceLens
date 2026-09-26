@@ -48,7 +48,7 @@ enum SQLitePreview {
             if columns.count > maximumColumns { truncated = true }
 
             var tableChildren: [PreviewSnapshot.StructuredItem] = [
-                .init(key: L10n.text("结构", "Structure"), type: L10n.text("\(columns.count) 列", "\(columns.count) columns"), children: columnItems)
+                .init(key: L10n.text("结构", "Structure"), type: L10n.text("\(L10n.count(columns.count, "列", "column", "columns"))", "\(L10n.count(columns.count, "列", "column", "columns"))"), children: columnItems)
             ]
             var rowItems: [PreviewSnapshot.StructuredItem] = []
             var rowTruncated = false
@@ -67,18 +67,18 @@ enum SQLitePreview {
                 }
                 sampledRows += rowItems.count
                 truncated = truncated || rowTruncated
-                tableChildren.append(.init(key: L10n.text("数据", "Data"), type: L10n.text("\(rowItems.count) 行", "\(rowItems.count) rows") + (rowTruncated ? L10n.text("（仅显示前 \(maximumRows) 行）", " (showing the first \(maximumRows) rows)") : ""),
+                tableChildren.append(.init(key: L10n.text("数据", "Data"), type: "\(L10n.count(rowItems.count, "行", "row", "rows"))" + (rowTruncated ? L10n.text("（仅显示前 \(maximumRows) 行）", " (showing the first \(maximumRows) rows)") : ""),
                                            children: rowItems))
             }
             let tableType = virtual ? L10n.text("虚拟表", "Virtual table") : L10n.text("表", "Table")
             roots.append(.init(key: name, type: tableType,
-                               value: L10n.text("\(columns.count) 列 · \(rowItems.count) 行样本", "\(columns.count) columns · \(rowItems.count) sampled rows"),
+                               value: L10n.text("\(L10n.count(columns.count, "列", "column", "columns")) · \(L10n.count(rowItems.count, "行样本", "sampled row", "sampled rows"))", "\(L10n.count(columns.count, "列", "column", "columns")) · \(L10n.count(rowItems.count, "行样本", "sampled row", "sampled rows"))"),
                                children: tableChildren))
         }
 
         return PreviewSnapshot(
             title: url.lastPathComponent,
-            summary: L10n.text("SpaceLens · SQLite · \(visibleTables.count) 个表 · \(sampledRows) 行样本", "SpaceLens · SQLite · \(visibleTables.count) tables · \(sampledRows) sampled rows") + (truncated ? L10n.text(" · 已按安全上限截断", " · truncated at the safety limit") : ""),
+            summary: L10n.text("SpaceLens · SQLite · \(L10n.count(visibleTables.count, "个表", "table", "tables")) · \(L10n.count(sampledRows, "行样本", "sampled row", "sampled rows"))", "SpaceLens · SQLite · \(L10n.count(visibleTables.count, "个表", "table", "tables")) · \(L10n.count(sampledRows, "行样本", "sampled row", "sampled rows"))") + (truncated ? L10n.text(" · 已按安全上限截断", " · truncated at the safety limit") : ""),
             body: "",
             truncated: truncated,
             contentKind: .database,
@@ -117,7 +117,7 @@ enum SQLitePreview {
             let value = String(decoding: UnsafeBufferPointer(start: pointer, count: count), as: UTF8.self)
             return .init(typeName: L10n.text("文本", "Text"), displayValue: clipped(value), text: value)
         case sqliteBlob:
-            return .init(typeName: "BLOB", displayValue: L10n.text("\(sqlite3_column_bytes(statement, index)) 字节", "\(sqlite3_column_bytes(statement, index)) bytes"))
+            return .init(typeName: "BLOB", displayValue: L10n.text("\(L10n.count(sqlite3_column_bytes(statement, index), "字节", "byte", "bytes"))", "\(L10n.count(sqlite3_column_bytes(statement, index), "字节", "byte", "bytes"))"))
         default:
             return .init(typeName: "NULL", displayValue: "NULL")
         }

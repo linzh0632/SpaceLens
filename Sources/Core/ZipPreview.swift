@@ -88,10 +88,10 @@ enum ZipPreview {
                 modificationDate: modificationDate, compression: compressionName(method), warnings: notes))
         }
         var warnings: [String] = []
-        if count > visibleCount { warnings.append(L10n.text("仅显示前 \(visibleCount) 项", "Showing the first \(visibleCount) entries")) }
+        if count > visibleCount { warnings.append(L10n.text("仅显示前 \(L10n.count(visibleCount, "项", "entry", "entries"))", "Showing the first \(L10n.count(visibleCount, "项", "entry", "entries"))")) }
         if encryptedCount > 0 { warnings.append(L10n.text("\(encryptedCount) 项加密", "\(encryptedCount) encrypted")) }
-        if unsafeCount > 0 { warnings.append(L10n.text("\(unsafeCount) 项路径不安全", "\(unsafeCount) unsafe paths")) }
-        if suspiciousCount > 0 { warnings.append(L10n.text("\(suspiciousCount) 项压缩比异常", "\(suspiciousCount) suspicious compression ratios")) }
+        if unsafeCount > 0 { warnings.append(L10n.text("\(L10n.count(unsafeCount, "项路径不安全", "unsafe path", "unsafe paths"))", "\(L10n.count(unsafeCount, "项路径不安全", "unsafe path", "unsafe paths"))")) }
+        if suspiciousCount > 0 { warnings.append(L10n.text("\(L10n.count(suspiciousCount, "项压缩比异常", "suspicious compression ratio", "suspicious compression ratios"))", "\(L10n.count(suspiciousCount, "项压缩比异常", "suspicious compression ratio", "suspicious compression ratios"))")) }
         let warningText = warnings.isEmpty ? "" : " · ⚠︎ " + warnings.joined(separator: L10n.text("、", "; "))
         return PreviewSnapshot(title: url.lastPathComponent,
             summary: L10n.text("SpaceLens · ZIP · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · 解压后 \(formatBytes(clampedInt64(totalUncompressed)))\(warningText)",

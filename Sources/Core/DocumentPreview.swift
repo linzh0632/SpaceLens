@@ -32,7 +32,7 @@ enum DocumentPreview {
         }
         return PreviewSnapshot(
             title: name,
-            summary: L10n.text("SpaceLens · \(format) · \(lineCount(source)) 行\(suffix)", "SpaceLens · \(format) · \(lineCount(source)) lines\(suffix)"),
+            summary: L10n.text("SpaceLens · \(format) · \(L10n.count(lineCount(source), "行", "line", "lines"))\(suffix)", "SpaceLens · \(format) · \(L10n.count(lineCount(source), "行", "line", "lines"))\(suffix)"),
             body: body,
             truncated: truncated,
             contentKind: .markdown,
@@ -79,10 +79,10 @@ enum DocumentPreview {
             }
         }
         let limited = cells.count > maximumNotebookCells
-        let limitNote = limited ? L10n.text(" · 仅显示前 \(maximumNotebookCells) 个单元格", " · showing the first \(maximumNotebookCells) cells only") : ""
+        let limitNote = limited ? L10n.text(" · 仅显示前 \(L10n.count(maximumNotebookCells, "个单元格", "cell", "cells"))", " · showing the first \(L10n.count(maximumNotebookCells, "个单元格", "cell", "cells")) only") : ""
         return PreviewSnapshot(
             title: name,
-            summary: L10n.text("SpaceLens · Jupyter Notebook · \(cells.count) 个单元格 · \(markdownCount) 个 Markdown · \(codeCount) 个代码\(limitNote)", "SpaceLens · Jupyter Notebook · \(cells.count) cells · \(markdownCount) Markdown · \(codeCount) code\(limitNote)"),
+            summary: L10n.text("SpaceLens · Jupyter Notebook · \(L10n.count(cells.count, "个单元格", "cell", "cells")) · \(markdownCount) 个 Markdown · \(codeCount) 个代码\(limitNote)", "SpaceLens · Jupyter Notebook · \(L10n.count(cells.count, "个单元格", "cell", "cells")) · \(markdownCount) Markdown · \(codeCount) code\(limitNote)"),
             body: rendered.joined(separator: "\n\n"),
             truncated: limited,
             contentKind: .markdown,

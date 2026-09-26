@@ -116,10 +116,10 @@ enum ArchivePreview {
         }
 
         var notices: [String] = []
-        if truncated { notices.append(L10n.text("仅显示前 \(entryLimit) 项", "Showing the first \(entryLimit) entries")) }
-        if linkCount > 0 { notices.append(L10n.text("\(linkCount) 项链接", "\(linkCount) links")) }
+        if truncated { notices.append(L10n.text("仅显示前 \(L10n.count(entryLimit, "项", "entry", "entries"))", "Showing the first \(L10n.count(entryLimit, "项", "entry", "entries"))")) }
+        if linkCount > 0 { notices.append(L10n.text("\(L10n.count(linkCount, "项链接", "link", "links"))", "\(L10n.count(linkCount, "项链接", "link", "links"))")) }
         if encryptedCount > 0 { notices.append(L10n.text("\(encryptedCount) 项加密", "\(encryptedCount) encrypted")) }
-        if unsafeCount > 0 { notices.append(L10n.text("\(unsafeCount) 项路径不安全", "\(unsafeCount) unsafe paths")) }
+        if unsafeCount > 0 { notices.append(L10n.text("\(L10n.count(unsafeCount, "项路径不安全", "unsafe path", "unsafe paths"))", "\(L10n.count(unsafeCount, "项路径不安全", "unsafe path", "unsafe paths"))")) }
         let noticeText = notices.isEmpty ? "" : " · ⚠︎ " + notices.joined(separator: L10n.text("、", "; "))
         let type = archiveType(url)
         let format = formatName(archive)

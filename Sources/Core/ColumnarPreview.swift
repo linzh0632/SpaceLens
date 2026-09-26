@@ -53,9 +53,9 @@ enum ColumnarPreview {
         if !keyValues.isEmpty {
             body += L10n.text("\n\n文件元信息：\n", "\n\nFile metadata:\n") + keyValues.prefix(50).map { "\($0.0)：\($0.1)" }.joined(separator: "\n")
         }
-        let limit = omitted > 0 ? L10n.text(" · 仅显示前 \(maximumColumns) 列", " · showing the first \(maximumColumns) columns only") : ""
+        let limit = omitted > 0 ? L10n.text(" · 仅显示前 \(L10n.count(maximumColumns, "列", "column", "columns"))", " · showing the first \(L10n.count(maximumColumns, "列", "column", "columns")) only") : ""
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: L10n.text("SpaceLens · Parquet · \(totalRows) 行 · \(fields.count) 列 · \(rowGroups) 个行组 · schema/元信息\(limit)", "SpaceLens · Parquet · \(totalRows) rows · \(fields.count) columns · \(rowGroups) row groups · schema/metadata\(limit)"),
+            summary: L10n.text("SpaceLens · Parquet · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(fields.count, "列", "column", "columns")) · \(L10n.count(rowGroups, "个行组", "row group", "row groups")) · schema/元信息\(limit)", "SpaceLens · Parquet · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(fields.count, "列", "column", "columns")) · \(L10n.count(rowGroups, "个行组", "row group", "row groups")) · schema/metadata\(limit)"),
             body: body, truncated: omitted > 0, contentKind: .table,
             table: .init(columns: [L10n.text("字段", "Field"), L10n.text("物理类型", "Physical type"), L10n.text("逻辑类型", "Logical type"), L10n.text("重复规则", "Repetition")], rows: rows, omittedRowCount: omitted))
     }
@@ -144,11 +144,11 @@ enum ColumnarPreview {
         }
         let schemaBody = fields.map { "\($0.name)" + L10n.text("：", ": ") + "\($0.typeName)\($0.nullable ? "?" : "")" }.joined(separator: "\n")
         let format = url.pathExtension.lowercased() == "feather" ? "Feather v2" : "Arrow IPC"
-        let limits = fields.count > maximumColumns ? L10n.text(" · 仅显示前 \(maximumColumns) 列", " · showing the first \(maximumColumns) columns only") : ""
+        let limits = fields.count > maximumColumns ? L10n.text(" · 仅显示前 \(L10n.count(maximumColumns, "列", "column", "columns"))", " · showing the first \(L10n.count(maximumColumns, "列", "column", "columns")) only") : ""
         if !canDecodeRows || unsupportedRows {
             let schemaRows = fields.prefix(maximumColumns).map { [$0.name, $0.typeName, $0.nullable ? L10n.text("是", "Yes") : L10n.text("否", "No")] }
             return PreviewSnapshot(title: url.lastPathComponent,
-                summary: L10n.text("SpaceLens · \(format) · \(totalRows) 行 · \(fields.count) 列 · \(blocks.count) 个批次 · 复杂/压缩列显示 schema\(limits)", "SpaceLens · \(format) · \(totalRows) rows · \(fields.count) columns · \(blocks.count) batches · schema shown for complex or compressed columns\(limits)"),
+                summary: L10n.text("SpaceLens · \(format) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(fields.count, "列", "column", "columns")) · \(L10n.count(blocks.count, "个批次", "batch", "batches")) · 复杂/压缩列显示 schema\(limits)", "SpaceLens · \(format) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(fields.count, "列", "column", "columns")) · \(L10n.count(blocks.count, "个批次", "batch", "batches")) · schema shown for complex or compressed columns\(limits)"),
                 body: schemaBody, truncated: true, contentKind: .table,
                 table: .init(columns: [L10n.text("字段", "Field"), L10n.text("类型", "Type"), L10n.text("可空", "Nullable")], rows: schemaRows,
                              omittedRowCount: max(0, fields.count - schemaRows.count)))
@@ -157,7 +157,7 @@ enum ColumnarPreview {
         let clippedRows = rows.map { Array($0.prefix(columns.count)) }
         let omitted = max(0, Int(clamping: totalRows) - clippedRows.count)
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: L10n.text("SpaceLens · \(format) · \(totalRows) 行 · \(fields.count) 列 · \(blocks.count) 个批次\(limits)", "SpaceLens · \(format) · \(totalRows) rows · \(fields.count) columns · \(blocks.count) batches\(limits)"),
+            summary: L10n.text("SpaceLens · \(format) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(fields.count, "列", "column", "columns")) · \(L10n.count(blocks.count, "个批次", "batch", "batches"))\(limits)", "SpaceLens · \(format) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(fields.count, "列", "column", "columns")) · \(L10n.count(blocks.count, "个批次", "batch", "batches"))\(limits)"),
             body: schemaBody, truncated: omitted > 0 || fields.count > maximumColumns,
             contentKind: .table,
             table: .init(columns: Array(columns), rows: clippedRows, omittedRowCount: omitted))
@@ -403,7 +403,7 @@ enum ColumnarPreview {
         let keys=metadata.keys.sorted().filter{$0 != "avro.schema"}.map{"\($0)" + L10n.text("：", ": ") + "\(String(data:metadata[$0]!,encoding:.utf8) ?? "<binary>")"}.joined(separator:"\n")
         let body=L10n.text("Schema：", "Schema: ") + "\n\(String(data:schemaData,encoding:.utf8) ?? "")" + (keys.isEmpty ? "":L10n.text("\n\n元信息：\n\(keys)", "\n\nMetadata:\n\(keys)"))
         return PreviewSnapshot(title:url.lastPathComponent,
-            summary:L10n.text("SpaceLens · Avro OCF · \(total) 行 · \(descriptor.columns.count) 列 · codec \(codec)", "SpaceLens · Avro OCF · \(total) rows · \(descriptor.columns.count) columns · codec \(codec)"),
+            summary:L10n.text("SpaceLens · Avro OCF · \(L10n.count(total, "行", "row", "rows")) · \(L10n.count(descriptor.columns.count, "列", "column", "columns")) · codec \(codec)", "SpaceLens · Avro OCF · \(L10n.count(total, "行", "row", "rows")) · \(L10n.count(descriptor.columns.count, "列", "column", "columns")) · codec \(codec)"),
             body:body,truncated:truncated || omitted>0,contentKind:.table,
             table:.init(columns:descriptor.columns,rows:rows,omittedRowCount:omitted))
     }

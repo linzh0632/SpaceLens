@@ -93,7 +93,7 @@ enum ImagePreview {
             throw PreviewFailure.unsupportedData(
                 L10n.text("图片缩略图超过 \(formatBytes(Int64(maximumThumbnailBytes))) 的显示上限。", "The image thumbnail exceeds the \(formatBytes(Int64(maximumThumbnailBytes))) display limit."))
         }
-        let frameNote = frameCount > 1 ? L10n.text(" · \(frameCount) 帧（显示第 1 帧）", " · \(frameCount) frames (showing frame 1)") : ""
+        let frameNote = frameCount > 1 ? L10n.text(" · \(L10n.count(frameCount, "帧", "frame", "frames"))（显示第 1 帧）", " · \(L10n.count(frameCount, "帧", "frame", "frames")) (showing frame 1)") : ""
         return PreviewSnapshot(title: name,
             summary: L10n.text("SpaceLens · 图片 · \(width)×\(height) · 缩略图 \(thumbnail.width)×\(thumbnail.height)\(frameNote)", "SpaceLens · Image · \(width)×\(height) · thumbnail \(thumbnail.width)×\(thumbnail.height)\(frameNote)"),
             body: "", truncated: false, contentKind: .image, imagePNGData: png)

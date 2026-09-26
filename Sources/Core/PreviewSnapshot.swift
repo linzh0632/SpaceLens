@@ -252,8 +252,8 @@ private enum DirectoryPreview {
         rows.sort { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         let truncated = truncatedByCount || truncatedByDepth
         var limits: [String] = []
-        if truncatedByCount { limits.append(L10n.text("最多 \(entryLimit) 项", "Up to \(entryLimit) entries")) }
-        if truncatedByDepth { limits.append(L10n.text("最多 \(depthLimit) 层", "Up to \(depthLimit) levels")) }
+        if truncatedByCount { limits.append(L10n.text("最多 \(L10n.count(entryLimit, "项", "entry", "entries"))", "Up to \(L10n.count(entryLimit, "项", "entry", "entries"))")) }
+        if truncatedByDepth { limits.append(L10n.text("最多 \(L10n.count(depthLimit, "层", "level", "levels"))", "Up to \(L10n.count(depthLimit, "层", "level", "levels"))")) }
         let suffix = limits.isEmpty ? "" : L10n.text(" · 已限制：", " · limited: ") + limits.joined(separator: L10n.text("、", "; "))
         let items = rows.map { row in
             PreviewSnapshot.Item(path: row.path, sourcePath: row.sourcePath, kind: itemKind(row.kind),

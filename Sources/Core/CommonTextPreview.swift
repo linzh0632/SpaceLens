@@ -65,7 +65,7 @@ enum CommonTextPreview {
         let suffix = textTruncated ? L10n.text(" · 仅显示前 \(formatBytes(Int64(byteLimit)))", " · showing the first \(formatBytes(Int64(byteLimit))) only") : ""
         if markdownExtensions.contains(ext) {
             return PreviewSnapshot(title: name,
-                summary: L10n.text("SpaceLens · Markdown · \(lineCount(source)) 行\(suffix)", "SpaceLens · Markdown · \(lineCount(source)) lines\(suffix)"), body: source,
+                summary: L10n.text("SpaceLens · Markdown · \(L10n.count(lineCount(source), "行", "line", "lines"))\(suffix)", "SpaceLens · Markdown · \(L10n.count(lineCount(source), "行", "line", "lines"))\(suffix)"), body: source,
                 truncated: textTruncated, contentKind: .markdown, language: "Markdown")
         }
         if tableExtensions.contains(ext) {
@@ -77,8 +77,8 @@ enum CommonTextPreview {
         let language = languageName(extension: ext, filename: filename)
         let kind: PreviewSnapshot.ContentKind = codeExtensions.contains(ext) || specialNames.contains(filename) ? .code : .text
         return PreviewSnapshot(title: name,
-            summary: L10n.text("SpaceLens · \(kind == .code ? language : "文本") · \(lineCount(source)) 行\(suffix)",
-                              "SpaceLens · \(kind == .code ? language : "Text") · \(lineCount(source)) lines\(suffix)"),
+            summary: L10n.text("SpaceLens · \(kind == .code ? language : "文本") · \(L10n.count(lineCount(source), "行", "line", "lines"))\(suffix)",
+                              "SpaceLens · \(kind == .code ? language : "Text") · \(L10n.count(lineCount(source), "行", "line", "lines"))\(suffix)"),
             body: source, truncated: textTruncated, contentKind: kind, language: language)
     }
 
@@ -133,11 +133,11 @@ enum CommonTextPreview {
         }
         let totalDataRows = max(0, parsed.totalRowCount - 1)
         let omitted = max(0, totalDataRows - visibleRows.count)
-        let limits = omitted > 0 ? L10n.text(" · 另有 \(omitted) 行未显示", " · \(omitted) more rows not shown") : ""
-        let columnLimit = rawHeader.count > maximumColumns ? L10n.text(" · 仅显示前 \(maximumColumns) 列", " · showing the first \(maximumColumns) columns only") : ""
+        let limits = omitted > 0 ? L10n.text(" · 另有 \(L10n.count(omitted, "行未显示", "more row not shown", "more rows not shown"))", " · \(L10n.count(omitted, "行未显示", "more row not shown", "more rows not shown"))") : ""
+        let columnLimit = rawHeader.count > maximumColumns ? L10n.text(" · 仅显示前 \(L10n.count(maximumColumns, "列", "column", "columns"))", " · showing the first \(L10n.count(maximumColumns, "列", "column", "columns")) only") : ""
         return PreviewSnapshot(title: name,
-            summary: L10n.text("SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(totalDataRows) 行 · \(rawHeader.count) 列\(limits)\(columnLimit)\(suffix)",
-                              "SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(totalDataRows) rows · \(rawHeader.count) columns\(limits)\(columnLimit)\(suffix)"),
+            summary: L10n.text("SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(L10n.count(totalDataRows, "行", "row", "rows")) · \(L10n.count(rawHeader.count, "列", "column", "columns"))\(limits)\(columnLimit)\(suffix)",
+                              "SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(L10n.count(totalDataRows, "行", "row", "rows")) · \(L10n.count(rawHeader.count, "列", "column", "columns"))\(limits)\(columnLimit)\(suffix)"),
             body: source, truncated: truncated || omitted > 0 || rawHeader.count > maximumColumns,
             contentKind: .table,
             table: .init(columns: columns, rows: Array(visibleRows), omittedRowCount: omitted))
@@ -222,7 +222,7 @@ enum CommonTextPreview {
                                        budget: inout Int) throws -> PreviewSnapshot.StructuredItem {
         try Task.checkCancellation()
         guard depth <= maximumJSONDepth else {
-            return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("超过 \(maximumJSONDepth) 层", "Deeper than \(maximumJSONDepth) levels"))
+            return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("超过 \(L10n.count(maximumJSONDepth, "层", "level", "levels"))", "Deeper than \(L10n.count(maximumJSONDepth, "层", "level", "levels"))"))
         }
         guard budget > 0 else { return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("达到节点上限", "Node limit reached")) }
         budget -= 1

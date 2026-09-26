@@ -3,6 +3,22 @@ import QuickLookUI
 import OSLog
 
 @MainActor
+/// Background of the preview window. `NSColor.cgColor` freezes the resolved colour, which left the
+/// window light while the labels turned white in dark mode, so the colour is re-applied whenever the
+/// system appearance changes.
+private final class AppearanceBackgroundView: NSView {
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateLayer()
+    }
+}
+
 private final class InvisibleDividerSplitView: NSSplitView {
     override var dividerColor: NSColor { .clear }
 
@@ -40,9 +56,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private var pendingDetailPosition = false
 
     override func loadView() {
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 900, height: 620))
+        let root = AppearanceBackgroundView(frame: NSRect(x: 0, y: 0, width: 900, height: 620))
         root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
         fileIcon.imageScaling = .scaleProportionallyUpOrDown
         fileIcon.symbolConfiguration = .init(pointSize: 30, weight: .regular)

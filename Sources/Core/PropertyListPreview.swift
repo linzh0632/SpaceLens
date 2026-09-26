@@ -73,7 +73,7 @@ enum PropertyListPreview {
             return .init(key: key, type: L10n.text("数组", "Array"), children: children)
         }
         if let data = value as? Data {
-            return .init(key: key, type: L10n.text("数据", "Data"), value: L10n.text("\(data.count) 字节", "\(data.count) bytes"))
+            return .init(key: key, type: L10n.text("数据", "Data"), value: L10n.text("\(L10n.count(data.count, "字节", "byte", "bytes"))", "\(L10n.count(data.count, "字节", "byte", "bytes"))"))
         }
         if let date = value as? Date {
             return .init(key: key, type: L10n.text("日期", "Date"), value: ISO8601DateFormatter().string(from: date))
