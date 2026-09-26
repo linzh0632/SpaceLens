@@ -1,5 +1,8 @@
 import SwiftUI
 import AppKit
+import OSLog
+
+private let appLogger = Logger(subsystem: "io.github.linzh0632.SpaceLens", category: "app")
 
 private enum SpaceLensPreference {
     static let showMenuBarIcon = "showMenuBarIcon"
@@ -55,13 +58,162 @@ private final class MenuBarController: NSObject {
     }
 }
 
+/// Quick Look extensions are registered with the system and are not tied to the host app's
+/// lifetime, so quitting SpaceLens would otherwise leave its previews active. The election state
+/// below is the same store System Settings edits, reached through `pluginkit`.
+private enum PreviewExtensionElection {
+    /// Result of the launch-time check, so the app can tell the user when previews will not work.
+    enum Status: Equatable {
+        case enabled
+        case disabled
+        case notEmbedded
+        case unavailable
+    }
+
+    static let identifier = "io.github.linzh0632.SpaceLens.Preview"
+    /// Records that *this app* disabled the extension on its last quit, so a manual choice made in
+    /// System Settings is never overridden on the next launch.
+    private static let disabledOnQuitKey = "extensionDisabledOnQuit"
+    private static let logger = Logger(subsystem: "io.github.linzh0632.SpaceLens", category: "lifecycle")
+
+    /// The embedded extension, or `nil` when the bundle does not contain it.
+    static var extensionURL: URL? {
+        Bundle.main.builtInPlugInsURL?.appendingPathComponent("SpaceLensPreview.appex")
+    }
+
+    /// `nil` when the state cannot be read, so callers do not act on a guess.
+    private static func isEnabled() -> Bool? {
+        guard let output = run(["-m", "-v", "-i", identifier]) else { return nil }
+        for line in output.split(separator: "\n") where line.contains(identifier) {
+            // An explicit election marks the line with "-" (ignored) or "+" (elected for use).
+            if line.hasPrefix("-") { return false }
+            return true
+        }
+        return nil
+    }
+
+    /// Reads the current status without changing anything.
+    static func status() -> Status {
+        guard extensionURL != nil else { return .notEmbedded }
+        guard let enabled = isEnabled() else { return .unavailable }
+        return enabled ? .enabled : .disabled
+    }
+
+    /// Reads the status off the main thread for the settings UI.
+    static func currentState() async -> Status {
+        await Task.detached(priority: .utility) { PreviewExtensionElection.status() }.value
+    }
+
+    /// Launch check: confirms previews are actually available, re-enabling the extension when this
+    /// app disabled it on the previous quit. Registration is retried once, because a lost
+    /// registration and an unreadable state are indistinguishable on the first read.
+    static func activateForThisSession() -> Status {
+        guard let extensionURL else {
+            logger.error("Preview extension is missing from the app bundle")
+            return .notEmbedded
+        }
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: disabledOnQuitKey), run(["-e", "use", "-i", identifier]) != nil {
+            defaults.set(false, forKey: disabledOnQuitKey)
+            logger.notice("Quick Look extension re-enabled for this session")
+        }
+        if let enabled = isEnabled() { return enabled ? .enabled : .disabled }
+        guard run(["-a", extensionURL.path]) != nil, let enabled = isEnabled() else {
+            logger.error("Could not read the Quick Look extension state")
+            return .unavailable
+        }
+        return enabled ? .enabled : .disabled
+    }
+
+    /// Disables the extension so that quitting the app also stops previews. If it is already
+    /// ignored, that choice came from System Settings and is left untouched.
+    static func suspendForQuit() {
+        let defaults = UserDefaults.standard
+        guard let enabled = isEnabled() else { return }
+        guard enabled else {
+            defaults.set(false, forKey: disabledOnQuitKey)
+            return
+        }
+        guard run(["-e", "ignore", "-i", identifier]) != nil else {
+            logger.error("Could not disable the Quick Look extension on quit")
+            return
+        }
+        defaults.set(true, forKey: disabledOnQuitKey)
+        logger.notice("Quick Look extension disabled on quit")
+    }
+
+    @discardableResult
+    private static func run(_ arguments: [String]) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pluginkit")
+        process.arguments = arguments
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+        do {
+            try process.run()
+        } catch {
+            logger.error("pluginkit did not launch: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+}
+
 private final class SpaceLensAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MenuBarController.shared.setEnabled(UserDefaults.standard.bool(forKey: SpaceLensPreference.showMenuBarIcon))
+        let status = PreviewExtensionElection.activateForThisSession()
+        appLogger.notice("Launch check: preview extension status \(String(describing: status), privacy: .public)")
+        SpaceLensExtensionAlert.presentIfNeeded(status)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        PreviewExtensionElection.suspendForQuit()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+}
+
+/// Tells the user at launch when the preview extension is not active, because SpaceLens cannot
+/// provide its previews in that state. Only shown when the check did not come back clean.
+private enum SpaceLensExtensionAlert {
+    static func presentIfNeeded(_ status: PreviewExtensionElection.Status) {
+        guard status != .enabled else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        switch status {
+        case .enabled:
+            return
+        case .disabled:
+            alert.messageText = "SpaceLens 预览扩展当前已停用"
+            alert.informativeText = "空格预览会使用 macOS 原生预览。若要让 SpaceLens 接管支持的文件类型，请在“系统设置 → 通用 → 登录项与扩展 → Quick Look”中启用它。"
+        case .notEmbedded:
+            alert.messageText = "未找到 SpaceLens 预览扩展"
+            alert.informativeText = "当前应用包内缺少 SpaceLensPreview.appex，请重新安装 SpaceLens。"
+        case .unavailable:
+            alert.messageText = "无法确认预览扩展状态"
+            alert.informativeText = "SpaceLens 未能读取 Quick Look 扩展的启用状态，预览可能不会生效。可以尝试重新安装应用或重新登录。"
+        }
+        let showsApp = status == .notEmbedded
+        alert.addButton(withTitle: showsApp ? "在 Finder 中显示应用" : "打开系统设置")
+        alert.addButton(withTitle: "好")
+        // Present after the settings window has appeared, so the alert is not the only thing on screen.
+        DispatchQueue.main.async {
+            appLogger.notice("Showing preview extension warning for status \(String(describing: status), privacy: .public)")
+            if alert.runModal() == .alertFirstButtonReturn {
+                if showsApp {
+                    SpaceLensActions.revealApplication()
+                } else {
+                    SpaceLensActions.openSystemSettings()
+                }
+            }
+        }
     }
 }
 
@@ -94,6 +246,7 @@ struct SpaceLensApp: App {
 
 private struct SpaceLensSettingsView: View {
     @AppStorage(SpaceLensPreference.showMenuBarIcon) private var showMenuBarIcon = false
+    @State private var extensionStatus: PreviewExtensionElection.Status?
 
     private var versionText: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
@@ -102,8 +255,7 @@ private struct SpaceLensSettingsView: View {
     }
 
     private var extensionIsEmbedded: Bool {
-        guard let plugInsURL = Bundle.main.builtInPlugInsURL else { return false }
-        return FileManager.default.fileExists(atPath: plugInsURL.appendingPathComponent("SpaceLensPreview.appex").path)
+        PreviewExtensionElection.extensionURL != nil
     }
 
     var body: some View {
@@ -124,6 +276,9 @@ private struct SpaceLensSettingsView: View {
         }
         .onChange(of: showMenuBarIcon) { enabled in
             MenuBarController.shared.setEnabled(enabled)
+        }
+        .task {
+            extensionStatus = await PreviewExtensionElection.currentState()
         }
     }
 
@@ -167,12 +322,19 @@ private struct SpaceLensSettingsView: View {
         settingCard(title: "Quick Look 扩展", symbol: "eye") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label(extensionIsEmbedded ? "扩展已包含在当前应用中" : "当前应用中未找到扩展",
-                          systemImage: extensionIsEmbedded ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                        .foregroundColor(extensionIsEmbedded ? .primary : .orange)
+                    Label(extensionStatusText, systemImage: extensionStatusSymbol)
+                        .foregroundColor(extensionStatusColor)
                     Spacer()
+                    Button("重新检查") {
+                        Task { extensionStatus = await PreviewExtensionElection.currentState() }
+                    }
+                    .controlSize(.small)
                 }
-                Text("如果 Finder 中无法预览支持的文件，请在系统设置的登录项与扩展中确认 SpaceLens Quick Look 已启用。")
+                Text("SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，重新打开 SpaceLens 后自动恢复。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("如果你在系统设置中手动停用了扩展，SpaceLens 不会在下次启动时覆盖这个选择。")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -181,6 +343,36 @@ private struct SpaceLensSettingsView: View {
                     Button("在 Finder 中显示应用", action: SpaceLensActions.revealApplication)
                 }
             }
+        }
+    }
+
+    private var extensionStatusText: String {
+        switch extensionStatus {
+        case .enabled: return "预览已启用"
+        case .disabled: return "预览已停用"
+        case .notEmbedded: return "当前应用中未找到预览扩展"
+        case .unavailable: return "无法读取扩展状态"
+        case nil: return "正在检查扩展状态…"
+        }
+    }
+
+    private var extensionStatusSymbol: String {
+        switch extensionStatus {
+        case .enabled: return "checkmark.seal.fill"
+        case .disabled: return "pause.circle.fill"
+        case .notEmbedded: return "exclamationmark.triangle.fill"
+        case .unavailable: return "questionmark.circle.fill"
+        case nil: return "clock"
+        }
+    }
+
+    private var extensionStatusColor: Color {
+        switch extensionStatus {
+        case .enabled: return .green
+        case .disabled: return .orange
+        case .notEmbedded: return .orange
+        case .unavailable: return .secondary
+        case nil: return .secondary
         }
     }
 

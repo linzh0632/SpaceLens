@@ -1,6 +1,6 @@
 # 安装 SpaceLens
 
-SpaceLens 当前版本为 **0.5.3（构建 16）**。目前没有已签名、公证的二进制安装包，需要使用完整 Xcode 从源码构建。
+SpaceLens 当前版本为 **0.5.4（构建 17）**。目前没有已签名、公证的二进制安装包，需要使用完整 Xcode 从源码构建。
 
 ## 准备环境
 
@@ -49,6 +49,17 @@ git pull --ff-only
 ```
 
 脚本会注销 Quick Look 扩展并把应用移入废纸篓，不会删除源码或用户文件。
+
+## 预览的启用与停用
+
+SpaceLens 只在你打开应用时提供预览：退出 SpaceLens（⌘Q 或菜单栏“退出 SpaceLens”）会**停用预览扩展**，空格预览随即回到 macOS 原生行为；重新打开 SpaceLens 会自动恢复。因此**重启 Mac 后需要先打开一次 SpaceLens**，它的预览才会生效。
+
+手动选择同样有效，并且会被保留——如果你在系统设置里停用了扩展，SpaceLens 下次启动不会覆盖它：
+
+- 系统设置 → 通用 → 登录项与扩展 → Quick Look，关闭或打开 SpaceLens。
+- 或在终端停用 `pluginkit -e ignore -i io.github.linzh0632.SpaceLens.Preview`，恢复 `pluginkit -e use -i io.github.linzh0632.SpaceLens.Preview`。
+
+强制退出（活动监视器“强制结束”、崩溃或断电）时停用步骤不会执行，扩展会保持启用，直到下一次正常退出。应用设置界面会显示扩展当前是启用还是停用。
 
 ## 故障排查
 
