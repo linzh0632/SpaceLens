@@ -29,6 +29,19 @@ public enum EmbeddedPreviewLoader {
         }
     }
 
+    /// The file a folder-child source points at, resolved exactly like `load` resolves it. The
+    /// detail pane needs it to reload a single worksheet when the user switches tabs.
+    public static func fileURL(for source: Source) -> URL? {
+        guard case .directoryChild(let root, let relativePath) = source else { return nil }
+        let components = relativePath.split(separator: "/", omittingEmptySubsequences: true)
+        guard !components.isEmpty, !components.contains("..") else { return nil }
+        var child = root
+        for component in components {
+            child = URL(fileURLWithPath: child.path + "/" + String(component))
+        }
+        return child
+    }
+
     // MARK: - Folder children
 
     private static func loadDirectoryChild(root: URL, relativePath: String) throws -> PreviewSnapshot {

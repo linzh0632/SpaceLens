@@ -88,12 +88,16 @@ public struct PreviewSnapshot: Sendable {
     /// PNG-encoded thumbnail for `.image` snapshots. Kept as `Data` so the snapshot remains
     /// `Sendable` and no `CGImage` crosses a concurrency domain.
     public let imagePNGData: Data?
+    /// Worksheet names when the snapshot is a spreadsheet, so the detail pane can offer a switcher.
+    public let sheetNames: [String]
+    /// Index of the worksheet this snapshot shows.
+    public let sheetIndex: Int
 
     public init(title: String, summary: String, body: String, truncated: Bool,
                 contentKind: ContentKind = .text, items: [Item] = [],
                 table: TableData? = nil, structuredItems: [StructuredItem] = [],
                 language: String? = nil, diagramSVG: String? = nil,
-                imagePNGData: Data? = nil) {
+                imagePNGData: Data? = nil, sheetNames: [String] = [], sheetIndex: Int = 0) {
         self.title = title
         self.summary = summary
         self.body = body
@@ -105,6 +109,8 @@ public struct PreviewSnapshot: Sendable {
         self.language = language
         self.diagramSVG = diagramSVG
         self.imagePNGData = imagePNGData
+        self.sheetNames = sheetNames
+        self.sheetIndex = sheetIndex
     }
 }
 

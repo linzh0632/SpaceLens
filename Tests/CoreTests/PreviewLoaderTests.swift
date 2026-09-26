@@ -683,12 +683,22 @@ final class PreviewLoaderTests: XCTestCase {
         XCTAssertTrue(snapshot.summary.contains("1 行"))
     }
 
-    func testSpreadsheetMentionsOtherSheets() throws {
+    func testSpreadsheetListsSheetsAndSwitches() throws {
         let url = try writeXLSX("Two.xlsx", sheets: [("数据集占比", firstCell: "a"), ("对比试验的精度", firstCell: "b")])
         let snapshot = try PreviewLoader.load(url)
+        XCTAssertEqual(snapshot.sheetNames, ["数据集占比", "对比试验的精度"], "标签栏需要工作表列表")
+        XCTAssertEqual(snapshot.sheetIndex, 0)
         XCTAssertTrue(snapshot.summary.contains("数据集占比"), "应显示第一个工作表")
-        XCTAssertTrue(snapshot.summary.contains("共 2 个工作表"), "应提示工作表总数")
         XCTAssertEqual(snapshot.table?.rows, [["a", "42"]])
+
+        let second = try SpreadsheetPreview.load(url, sheetIndex: 1)
+        XCTAssertEqual(second.sheetIndex, 1)
+        XCTAssertTrue(second.summary.contains("对比试验的精度"))
+        XCTAssertEqual(second.table?.rows, [["b", "42"]])
+
+        // 越界索引回落到最后一个工作表,而不是报错
+        let clamped = try SpreadsheetPreview.load(url, sheetIndex: 99)
+        XCTAssertEqual(clamped.sheetIndex, 1)
     }
 
     /// The English wording is never exercised by the other tests, which pin Chinese in `setUp`.

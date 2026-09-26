@@ -21,6 +21,11 @@ public enum SpreadsheetPreview {
     static let sharedStringsPart = "xl/sharedStrings.xml"
 
     public static func load(_ url: URL) throws -> PreviewSnapshot {
+        try load(url, sheetIndex: 0)
+    }
+
+    /// Loads one worksheet by index, so the detail pane can switch sheets without reloading the file.
+    public static func load(_ url: URL, sheetIndex requestedIndex: Int) throws -> PreviewSnapshot {
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
         guard (values.fileSize ?? 0) <= maximumFileBytes else {
             throw PreviewFailure.unsupportedData(L10n.text("文件超过 64 MiB 的安全读取上限。", "The file exceeds the 64 MiB safe read limit."))
@@ -36,11 +41,13 @@ public enum SpreadsheetPreview {
             throw PreviewFailure.unsupportedData(L10n.text("这个文件不是有效的 XLSX 工作簿。", "This file is not a valid XLSX workbook."))
         }
         let sheets = try WorkbookParser.parse(workbookData)
-        guard let firstSheet = sheets.first else {
+        guard !sheets.isEmpty else {
             throw PreviewFailure.unsupportedData(L10n.text("工作簿里没有工作表。", "The workbook has no worksheets."))
         }
+        let index = min(max(0, requestedIndex), sheets.count - 1)
+        let selectedSheet = sheets[index]
         let targets = head[relationshipsPart].map(RelationshipsParser.parse) ?? [:]
-        guard let identifier = firstSheet.relationshipID,
+        guard let identifier = selectedSheet.relationshipID,
               let target = targets[identifier],
               let sheetPart = partPath(for: target) else {
             throw PreviewFailure.unsupportedData(L10n.text("找不到第一个工作表的内容。", "The first worksheet could not be found."))
@@ -67,10 +74,6 @@ public enum SpreadsheetPreview {
         let totalRows = max(0, grid.rows.count - 1)
         let omitted = max(0, totalRows - visibleRows.count)
         var notes: [String] = []
-        if sheets.count > 1 {
-            notes.append(L10n.text("共 \(L10n.count(sheets.count, "个工作表", "sheet", "sheets"))",
-                                   "\(L10n.count(sheets.count, "个工作表", "sheet", "sheets")) in total"))
-        }
         if url.pathExtension.lowercased() == "xlsm" {
             notes.append(L10n.text("宏未读取", "macros ignored"))
         }
@@ -81,11 +84,12 @@ public enum SpreadsheetPreview {
         let noteText = notes.isEmpty ? "" : " · " + notes.joined(separator: " · ")
 
         // The worksheet name comes from the file, so it is labelled as a name rather than translated.
-        let sheetLabel = L10n.text("工作表「\(firstSheet.name)」", "sheet \"\(firstSheet.name)\"")
+        let sheetLabel = L10n.text("工作表「\(selectedSheet.name)」", "sheet \"\(selectedSheet.name)\"")
         return PreviewSnapshot(title: url.lastPathComponent,
             summary: "SpaceLens · XLSX · \(sheetLabel) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(columns.count, "列", "column", "columns"))\(noteText)",
             body: "", truncated: grid.truncated || omitted > 0, contentKind: .table,
-            table: .init(columns: columns, rows: Array(visibleRows), omittedRowCount: omitted))
+            table: .init(columns: columns, rows: Array(visibleRows), omittedRowCount: omitted),
+            sheetNames: sheets.map(\.name), sheetIndex: index)
     }
 
     /// Resolves a relationship target to a package path. Targets are relative to `xl/` unless they

@@ -13,7 +13,7 @@ SpaceLens 是一个开源的 macOS Quick Look 扩展，用来直接预览文件�
 - 支持 Markdown、代码、配置、JSON、JSON Lines、TSV、plist、SQLite 和 Jupyter Notebook。
 - 支持 TAR、GZ、TGZ、BZ2、TBZ2、XZ、TXZ 等常见归档格式。
 - 支持 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
-- 文件夹或压缩包的右侧窗格可以把 `.xlsx` / `.xlsm` 的第一个工作表读成表格：只读、公式不求解、宏不读取。
+- 文件夹的右侧窗格可以把 `.xlsx` / `.xlsm` 的工作表读成表格，并用底部标签栏切换工作表：只读、公式不求解、宏不读取。
 - 界面提供简体中文与英文两种语言，可在“通用设置 → 语言”中切换；预览窗口使用同一语言。
 - 日期和明暗外观跟随 macOS 设置。
 - 设置界面按“功能设置 / 通用设置 / 关于”分区，集中显示扩展状态与预览范围，并提供菜单栏图标、开机自启动与检查更新。
@@ -51,7 +51,7 @@ cd SpaceLens
 
 SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，空格预览回到 macOS 原生行为，重新打开应用后自动恢复。因此重启 Mac 后需要先打开一次 SpaceLens；在通用设置中开启“开机自启动”后，登录时它会自动启动，预览随之可用。
 
-SpaceLens 不注册为文档打开程序。双击文件仍由系统或你选择的编辑器处理。图片、PDF、音频和视频等 macOS 已经支持的格式继续使用系统原生 Quick Look；在 macOS 27 上，CSV 与普通 TXT 也可能优先使用系统预览。`.xlsx` / `.xlsm` 不在 SpaceLens 的直接预览范围内：直接按空格由系统或 Excel 处理，只有在文件夹的右侧窗格中才会由 SpaceLens 读成表格。
+SpaceLens 不注册为文档打开程序。双击文件仍由系统或你选择的编辑器处理。图片、PDF、音频和视频等 macOS 已经支持的格式继续使用系统原生 Quick Look；在 macOS 27 上，CSV 与普通 TXT 也可能优先使用系统预览。`.xlsx` / `.xlsm` 不在 SpaceLens 的直接预览范围内：直接按空格由系统或 Excel 处理，只有在文件夹的右侧窗格中才会由 SpaceLens 读成表格（可在窗格底部切换工作表）。
 
 ## 隐私与安全
 

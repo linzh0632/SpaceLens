@@ -51,6 +51,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     private var generation = UUID()
     private var previewedURL: URL?
     private var containerKind: PreviewSnapshot.ContentKind?
+    private var detailURL: URL?
     private var detailGeneration = UUID()
     private var detailTask: Task<Void, Never>?
     private var pendingDetailPosition = false
@@ -73,6 +74,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         configureDataTable()
         configureDiagram()
         detailPane.onClose = { [weak self] in self?.closeDetailPreview() }
+        detailPane.onSelectSheet = { [weak self] index in self?.showSheet(index) }
         emptyState.alignment = .center
         emptyState.font = .systemFont(ofSize: 15)
         emptyState.textColor = .secondaryLabelColor
@@ -441,6 +443,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         case .zip, .archive: source = .archiveEntry(archive: root, path: sourcePath)
         default: return
         }
+        detailURL = EmbeddedPreviewLoader.fileURL(for: source)
         let request = UUID()
         detailGeneration = request
         setDetailVisible(true)
@@ -463,6 +466,32 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
                 if error is CancellationError { return }
                 self.detailPane.showError(name: node.name, message: error.localizedDescription)
                 self.logger.error("SpaceLens detail preview failed: \(error.localizedDescription, privacy: .private)")
+            }
+        }
+    }
+
+    /// Re-renders the pane for another worksheet of the file it is already showing.
+    private func showSheet(_ index: Int) {
+        guard let url = detailURL,
+              SpreadsheetPreview.extensions.contains(url.pathExtension.lowercased()) else { return }
+        let request = UUID()
+        detailGeneration = request
+        let worker = Task.detached(priority: .userInitiated) {
+            try SpreadsheetPreview.load(url, sheetIndex: index)
+        }
+        detailTask = Task { @MainActor [weak self] in
+            do {
+                let snapshot = try await withTaskCancellationHandler(operation: {
+                    try await worker.value
+                }, onCancel: {
+                    worker.cancel()
+                })
+                guard let self, self.detailGeneration == request else { return }
+                self.detailPane.show(snapshot)
+            } catch {
+                guard let self, self.detailGeneration == request else { return }
+                if error is CancellationError { return }
+                self.detailPane.showError(name: url.lastPathComponent, message: error.localizedDescription)
             }
         }
     }
@@ -955,6 +984,13 @@ private extension Int {
 private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
                                        NSTableViewDataSource, NSTableViewDelegate {
     var onClose: (() -> Void)?
+    /// Called when the user picks another worksheet; the controller reloads that sheet.
+    var onSelectSheet: ((Int) -> Void)?
+
+    private let sheetBar = NSScrollView()
+    private let sheetControl = NSSegmentedControl()
+    private var contentBottomToPane: [NSLayoutConstraint] = []
+    private var contentBottomToBar: [NSLayoutConstraint] = []
 
     private let titleLabel = NSTextField(labelWithString: L10n.text("预览", "Preview"))
     private let subtitleLabel = NSTextField(labelWithString: "")
@@ -1041,8 +1077,23 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         let divider = NSBox()
         divider.boxType = .separator
 
+        sheetControl.segmentStyle = .texturedRounded
+        sheetControl.trackingMode = .selectOne
+        sheetControl.controlSize = .small
+        sheetControl.font = .systemFont(ofSize: 11)
+        sheetControl.target = self
+        sheetControl.action = #selector(sheetSegmentChanged(_:))
+        sheetBar.drawsBackground = false
+        sheetBar.borderType = .noBorder
+        // No visible scroller: inside a 26 pt bar it would eat the height and clip the segments.
+        // A trackpad still scrolls the strip sideways when a workbook has many sheets.
+        sheetBar.hasHorizontalScroller = false
+        sheetBar.hasVerticalScroller = false
+        sheetBar.isHidden = true
+        sheetBar.documentView = sheetControl
+
         for child in [titleLabel, subtitleLabel, closeButton, divider, textScroll, imageScroll,
-                      tableScroll, outlineScroll, messageLabel] {
+                      tableScroll, outlineScroll, messageLabel, sheetBar] {
             child.translatesAutoresizingMaskIntoConstraints = false
             addSubview(child)
         }
@@ -1079,10 +1130,18 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             constraints.append(contentsOf: [
                 scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
                 scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-                scroll.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10),
-                scroll.bottomAnchor.constraint(equalTo: bottomAnchor)
+                scroll.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10)
             ])
+            contentBottomToPane.append(scroll.bottomAnchor.constraint(equalTo: bottomAnchor))
+            contentBottomToBar.append(scroll.bottomAnchor.constraint(equalTo: sheetBar.topAnchor, constant: -8))
         }
+        constraints.append(contentsOf: [
+            sheetBar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            sheetBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            sheetBar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
+            sheetBar.heightAnchor.constraint(equalToConstant: 26)
+        ])
+        constraints.append(contentsOf: contentBottomToPane)
         NSLayoutConstraint.activate(constraints)
     }
 
@@ -1200,6 +1259,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         titleLabel.stringValue = snapshot.title
         subtitleLabel.stringValue = snapshot.summary
         hideContent()
+        applySheetBar(snapshot)
         switch snapshot.contentKind {
         case .image:
             guard let data = snapshot.imagePNGData, let image = NSImage(data: data) else {
@@ -1249,11 +1309,42 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
     }
 
     private func hideContent() {
+        setSheetBarVisible(false)
         messageLabel.isHidden = true
         textScroll.isHidden = true
         imageScroll.isHidden = true
         tableScroll.isHidden = true
         outlineScroll.isHidden = true
+    }
+
+    /// Shows one segment per worksheet. A single-sheet workbook keeps the bar hidden.
+    private func applySheetBar(_ snapshot: PreviewSnapshot) {
+        let names = snapshot.sheetNames
+        guard names.count > 1 else {
+            setSheetBarVisible(false)
+            return
+        }
+        sheetControl.segmentCount = names.count
+        for (index, name) in names.enumerated() {
+            sheetControl.setLabel(name, forSegment: index)
+            sheetControl.setWidth(0, forSegment: index)
+        }
+        sheetControl.selectedSegment = min(max(0, snapshot.sheetIndex), names.count - 1)
+        sheetControl.sizeToFit()
+        sheetBar.documentView?.frame = NSRect(x: 0, y: 0,
+                                              width: max(sheetControl.fittingSize.width, 10),
+                                              height: 26)
+        setSheetBarVisible(true)
+    }
+
+    private func setSheetBarVisible(_ visible: Bool) {
+        sheetBar.isHidden = !visible
+        for constraint in contentBottomToBar { constraint.isActive = visible }
+        for constraint in contentBottomToPane { constraint.isActive = !visible }
+    }
+
+    @objc private func sheetSegmentChanged(_ sender: NSSegmentedControl) {
+        onSelectSheet?(sender.selectedSegment)
     }
 
     private func showMessage(_ text: String) {
