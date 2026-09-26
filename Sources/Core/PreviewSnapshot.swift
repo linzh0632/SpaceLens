@@ -159,6 +159,7 @@ public enum PreviewLoader {
         case "spacelens": return try loadAcceptanceFile(url)
         case "plist": return try PropertyListPreview.load(url)
         case "db", "sqlite", "sqlite3": return try SQLitePreview.load(url)
+        case let ext where SpreadsheetPreview.extensions.contains(ext): return try SpreadsheetPreview.load(url)
         case let ext where ColumnarPreview.extensions.contains(ext): return try ColumnarPreview.load(url)
         case let ext where ArchivePreview.extensions.contains(ext):
             return try ArchivePreview.load(url, entryLimit: entryLimit)

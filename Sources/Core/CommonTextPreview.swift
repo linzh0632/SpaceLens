@@ -120,13 +120,7 @@ enum CommonTextPreview {
         let parsed = try parseDelimited(source, delimiter: delimiter)
         let rawHeader = parsed.rows.first ?? []
         let width = min(max(1, rawHeader.count), maximumColumns)
-        var used: [String: Int] = [:]
-        let columns = (0..<width).map { index -> String in
-            let base = index < rawHeader.count && !rawHeader[index].isEmpty ? rawHeader[index] : L10n.text("列 \(index + 1)", "Column \(index + 1)")
-            let occurrence = (used[base] ?? 0) + 1
-            used[base] = occurrence
-            return occurrence == 1 ? base : "\(base) (\(occurrence))"
-        }
+        let columns = columnNames(rawHeader, width: width)
         let allRows = parsed.rows.dropFirst()
         let visibleRows = allRows.prefix(maximumRows).map { row in
             (0..<width).map { $0 < row.count ? row[$0] : "" }
@@ -141,6 +135,18 @@ enum CommonTextPreview {
             body: source, truncated: truncated || omitted > 0 || rawHeader.count > maximumColumns,
             contentKind: .table,
             table: .init(columns: columns, rows: Array(visibleRows), omittedRowCount: omitted))
+    }
+
+    /// Column titles for a table: empty header cells fall back to "Column N" and duplicate names get
+    /// a numeric suffix.
+    static func columnNames(_ header: [String], width: Int) -> [String] {
+        var used: [String: Int] = [:]
+        return (0..<width).map { index -> String in
+            let base = index < header.count && !header[index].isEmpty ? header[index] : L10n.text("列 \(index + 1)", "Column \(index + 1)")
+            let occurrence = (used[base] ?? 0) + 1
+            used[base] = occurrence
+            return occurrence == 1 ? base : "\(base) (\(occurrence))"
+        }
     }
 
     private static func parseDelimited(_ source: String, delimiter: Character) throws -> ParsedTable {

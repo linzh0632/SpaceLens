@@ -672,6 +672,25 @@ final class PreviewLoaderTests: XCTestCase {
             .archiveEntry(archive: zip, path: try XCTUnwrap(listed.items.first?.sourcePath))).body, "z")
     }
 
+    func testSpreadsheetShowsFirstSheetAsTable() throws {
+        let url = try writeXLSX("Book.xlsx", sheets: [("Sheet1", firstCell: "alpha")])
+        let snapshot = try PreviewLoader.load(url)
+        XCTAssertEqual(snapshot.contentKind, .table)
+        XCTAssertEqual(snapshot.table?.columns, ["name", "value"])
+        XCTAssertEqual(snapshot.table?.rows, [["alpha", "42"]])
+        XCTAssertTrue(snapshot.summary.contains("XLSX"))
+        XCTAssertTrue(snapshot.summary.contains("Sheet1"))
+        XCTAssertTrue(snapshot.summary.contains("1 行"))
+    }
+
+    func testSpreadsheetMentionsOtherSheets() throws {
+        let url = try writeXLSX("Two.xlsx", sheets: [("数据集占比", firstCell: "a"), ("对比试验的精度", firstCell: "b")])
+        let snapshot = try PreviewLoader.load(url)
+        XCTAssertTrue(snapshot.summary.contains("数据集占比"), "应显示第一个工作表")
+        XCTAssertTrue(snapshot.summary.contains("共 2 个工作表"), "应提示工作表总数")
+        XCTAssertEqual(snapshot.table?.rows, [["a", "42"]])
+    }
+
 }
 
 private struct ZipEntry {
@@ -843,6 +862,32 @@ private extension PreviewLoaderTests {
         }
         return output as Data
     }
+
+    /// A minimal OOXML package: shared strings, an inline string, numbers and a second sheet.
+    func writeXLSX(_ name: String, sheets: [(name: String, firstCell: String)]) throws -> URL {
+        let entries = sheets.enumerated().map { index, sheet in
+            "<sheet name=\"\(sheet.name)\" sheetId=\"\(index + 1)\" r:id=\"rId\(index + 1)\"/>"
+        }.joined()
+        let relationships = sheets.enumerated().map { index, _ in
+            "<Relationship Id=\"rId\(index + 1)\" Type=\"http://schemas/x\" Target=\"worksheets/sheet\(index + 1).xml\"/>"
+        }.joined()
+        var parts: [(name: String, data: Data)] = [
+            ("xl/workbook.xml", Data(("<workbook><sheets>" + entries + "</sheets></workbook>").utf8)),
+            ("xl/_rels/workbook.xml.rels", Data(("<Relationships>" + relationships + "</Relationships>").utf8)),
+            ("xl/sharedStrings.xml", Data("<sst><si><t>name</t></si><si><t>value</t></si></sst>".utf8))
+        ]
+        for (index, sheet) in sheets.enumerated() {
+            let body = """
+            <worksheet><sheetData>\
+            <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>\
+            <row r="2"><c r="A2" t="inlineStr"><is><t>\(sheet.firstCell)</t></is></c><c r="B2"><v>42</v></c></row>\
+            </sheetData></worksheet>
+            """
+            parts.append(("xl/worksheets/sheet\(index + 1).xml", Data(body.utf8)))
+        }
+        return try writeStoredZip(name, entries: parts)
+    }
+
 }
 
 /// Table-driven CRC-32 (IEEE), required because stored ZIP entries carry a checksum that the

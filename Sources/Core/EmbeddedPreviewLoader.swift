@@ -108,27 +108,15 @@ public enum EmbeddedPreviewLoader {
     }
 }
 
-/// Extracts a single archive entry into memory. Nothing is written to disk.
-private enum ArchiveEntryReader {
+/// Extracts archive entries into memory. Nothing is written to disk.
+enum ArchiveEntryReader {
     private static let archiveOK: Int32 = 0
     private static let archiveEOF: Int32 = 1
     private static let archiveWarn: Int32 = -20
 
     static func read(archive url: URL, path: String, limit: Int) throws -> (Data, Bool) {
-        guard let archive = reader_new() else {
-            throw PreviewFailure.damagedArchive(L10n.text("无法初始化归档读取器", "Cannot initialize the archive reader"))
-        }
+        let archive = try open(url)
         defer { _ = reader_free(archive) }
-        guard reader_support_filter_all(archive) >= archiveWarn,
-              reader_support_format_all(archive) >= archiveWarn else {
-            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用所需格式", "The system archive library cannot enable the required formats"))
-        }
-        if url.pathExtension.lowercased() != "tar", reader_support_format_raw(archive) < archiveWarn {
-            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用独立压缩流", "The system archive library cannot enable standalone compression streams"))
-        }
-        guard url.path.withCString({ reader_open(archive, $0, 64 * 1024) }) == archiveOK else {
-            throw failure(archive)
-        }
 
         let deadline = Date().addingTimeInterval(EmbeddedPreviewLoader.maximumScanSeconds)
         var scanned = 0
@@ -144,19 +132,79 @@ private enum ArchiveEntryReader {
             }
             guard status >= archiveWarn, let entry else { throw failure(archive) }
             scanned += 1
-            let reported = reader_entry_path_utf8(entry).map(String.init(cString:))
-                ?? reader_entry_path(entry).map(String.init(cString:)) ?? ""
-            // The container listing stores archive paths normalized (leading "./" removed), so
-            // the archive-reported name has to be normalized the same way before comparing.
-            guard ArchivePreview.normalized(reported) == path else {
+            guard normalizedPath(entry) == path else {
                 _ = reader_data_skip(archive)
                 continue
             }
-            if reader_entry_encrypted(entry) == 1 {
-                throw PreviewFailure.unsupportedArchive(L10n.text("条目「\(path)」已加密，无法预览内容。", "Entry “\(path)” is encrypted; its content cannot be previewed."))
-            }
+            try checkEncrypted(entry, path)
             return try drain(archive, limit: limit, deadline: deadline)
         }
+    }
+
+    /// Reads several named entries in one pass, for formats that live in more than one member (an
+    /// OOXML package, for instance). Parts that are absent are simply missing from the result.
+    static func read(archive url: URL, wanted: Set<String>,
+                     perEntryLimit: Int, totalLimit: Int) throws -> [String: Data] {
+        let archive = try open(url)
+        defer { _ = reader_free(archive) }
+
+        let deadline = Date().addingTimeInterval(EmbeddedPreviewLoader.maximumScanSeconds)
+        var found: [String: Data] = [:]
+        var total = 0
+        while found.count < wanted.count {
+            try Task.checkCancellation()
+            if Date() > deadline { break }
+            var entry: OpaquePointer?
+            let status = reader_next_header(archive, &entry)
+            if status == archiveEOF { break }
+            guard status >= archiveWarn, let entry else { throw failure(archive) }
+            let key = normalizedPath(entry)
+            guard wanted.contains(key), found[key] == nil else {
+                _ = reader_data_skip(archive)
+                continue
+            }
+            try checkEncrypted(entry, key)
+            let remaining = min(perEntryLimit, totalLimit - total)
+            guard remaining > 0 else { break }
+            let (data, _) = try drain(archive, limit: remaining, deadline: deadline)
+            found[key] = data
+            total += data.count
+        }
+        return found
+    }
+
+    private static func open(_ url: URL) throws -> OpaquePointer {
+        guard let archive = reader_new() else {
+            throw PreviewFailure.damagedArchive(L10n.text("无法初始化归档读取器", "Cannot initialize the archive reader"))
+        }
+        guard reader_support_filter_all(archive) >= archiveWarn,
+              reader_support_format_all(archive) >= archiveWarn else {
+            _ = reader_free(archive)
+            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用所需格式", "The system archive library cannot enable the required formats"))
+        }
+        if url.pathExtension.lowercased() != "tar", reader_support_format_raw(archive) < archiveWarn {
+            _ = reader_free(archive)
+            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用独立压缩流", "The system archive library cannot enable standalone compression streams"))
+        }
+        guard url.path.withCString({ reader_open(archive, $0, 64 * 1024) }) == archiveOK else {
+            let error = failure(archive)
+            _ = reader_free(archive)
+            throw error
+        }
+        return archive
+    }
+
+    private static func normalizedPath(_ entry: OpaquePointer?) -> String {
+        let reported = reader_entry_path_utf8(entry).map(String.init(cString:))
+            ?? reader_entry_path(entry).map(String.init(cString:)) ?? ""
+        // The container listing stores archive paths normalized (leading "./" removed), so the
+        // archive-reported name has to be normalized the same way before comparing.
+        return ArchivePreview.normalized(reported)
+    }
+
+    private static func checkEncrypted(_ entry: OpaquePointer?, _ path: String) throws {
+        guard reader_entry_encrypted(entry) == 1 else { return }
+        throw PreviewFailure.unsupportedArchive(L10n.text("条目「\(path)」已加密，无法预览内容。", "Entry “\(path)” is encrypted; its content cannot be previewed."))
     }
 
     private static func drain(_ archive: OpaquePointer?, limit: Int,
