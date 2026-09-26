@@ -1,38 +1,61 @@
-# SpaceLens · 空格镜
+# SpaceLens
 
 按下空格，多看一点。
 
-面向 macOS 的本地快速预览增强工具，保留系统原生预览体验，并以 Super Quick Look 的公开功能为首版对照目标。
+SpaceLens 是一个开源的 macOS Quick Look 扩展，用来直接预览文件夹、压缩包、代码、结构化数据和常见开发文件。所有解析和渲染都在本机完成；它只负责预览，不会接管文件的双击打开方式。
 
-**当前状态：M1 至 M6 已完成并通过自动检查与 Finder 实机验收；M7a 已实现容器内条目预览。文件夹和归档列表支持按系统语言显示修改时间，点击列表中的条目可在右侧窗格就地预览。已实现文件夹、常用归档、文本、代码、配置、Markdown、CSV/TSV、JSON、plist、SQLite、扩展文档、Jupyter Notebook，以及 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro 的本地预览。macOS 27 对 CSV 与普通 TXT 固定优先使用系统预览，SpaceLens 保留该原生行为。**
+[![macOS release check](https://github.com/linzh0632/SpaceLens/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/linzh0632/SpaceLens/actions/workflows/macos.yml)
 
-- [安装、更新与卸载](docs/INSTALL.md)
-- [M1 实测结果与限制](docs/M1-RESULTS.md)
-- [M2 范围与验收](docs/M2-RESULTS.md)
-- [M3 范围与验收](docs/M3-RESULTS.md)
-- [M4A 范围与验收](docs/M4A-RESULTS.md)
-- [M4B 范围与验收](docs/M4B-RESULTS.md)
-- [M4C 范围与验收](docs/M4C-RESULTS.md)
-- [M4D 范围与验收](docs/M4D-RESULTS.md)
-- [M4E 范围与验收](docs/M4E-RESULTS.md)
-- [M4F 范围与验收](docs/M4F-RESULTS.md)
-- [M5 范围与验收](docs/M5-RESULTS.md)
-- [M6 范围与验收](docs/M6-RESULTS.md)
-- [M7a 容器内条目预览](docs/M7-RESULTS.md)
-- [维护说明](docs/MAINTENANCE.md)
-- [文件类型与默认打开应用审计](docs/FILE-ASSOCIATIONS.md)
+## 主要功能
 
-- [开发前检查与实施计划](docs/DEVELOPMENT-READINESS.md)
-- [功能对照与验收矩阵](docs/FEATURE-MATRIX.md)
-- [M7 容器内条目预览（设计，M7a 已实现）](docs/M7-DESIGN.md)
-- [项目目标与约定](SpaceLens-PREPARATION.md)
+- 文件夹和归档以可展开的树形列表显示名称、类型、大小和修改时间。
+- 点击文件夹或 ZIP 中的文件，可在右侧窗格继续预览内容。
+- 支持 Markdown、代码、配置、JSON、JSON Lines、TSV、plist、SQLite 和 Jupyter Notebook。
+- 支持 TAR、GZ、TGZ、BZ2、TBZ2、XZ、TXZ 等常见归档格式。
+- 支持 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
+- 日期、界面文字和明暗外观跟随 macOS 设置。
+- 无账号、无遥测、无网络请求，不执行预览文件中的代码。
 
-## 开发环境
+完整格式与限制见[支持格式](docs/FEATURE-MATRIX.md)。
 
-本机已安装 Xcode 27.0 与 macOS 27 SDK。Swift 编译运行、基础本地签名及 GitHub 连接验证均已通过；Finder 的验收文件与文件夹接入已由用户实测确认。macOS 12 为候选最低版本，尚未验证兼容性。
+## 系统要求
 
-## 协作
+- macOS 12 或更高版本
+- 完整版 Xcode 及 Command Line Tools（从源码构建时需要）
 
-GitHub： https://github.com/linzh0632/SpaceLens
+目前已在 Apple Silicon 和 macOS 27 上完成实机验收。项目会构建 arm64 与 x86_64 通用应用，但 Intel Mac 和较早 macOS 版本尚未完成实机测试。
 
-使用功能分支开发，每个大功能完成并验证后推送。当前按私有仓库管理，成熟后再由用户决定公开；许可证待公开前确定。
+## 安装
+
+SpaceLens 目前提供源码安装，尚未发布经过 Apple Developer ID 签名和公证的安装包。
+
+```sh
+git clone https://github.com/linzh0632/SpaceLens.git
+cd SpaceLens
+./scripts/build.sh
+./scripts/install.sh
+```
+
+默认安装到 `/Applications/SpaceLens.app`。首次使用时，如 Finder 没有调用 SpaceLens，请在“系统设置 → 通用 → 登录项与扩展 → Quick Look”中启用它。
+
+详细的更新、卸载和故障排查步骤见[安装指南](docs/INSTALL.md)。
+
+## 使用
+
+1. 在 Finder 中选中文件、文件夹或归档。
+2. 按空格打开 Quick Look。
+3. 在文件夹或归档列表中选择文件，即可在右侧窗格继续预览；点击“关闭”可收起右侧窗格。
+
+SpaceLens 不注册为文档打开程序。双击文件仍由系统或你选择的编辑器处理。图片、PDF、音频和视频等 macOS 已经支持的格式继续使用系统原生 Quick Look；在 macOS 27 上，CSV 与普通 TXT 也可能优先使用系统预览。
+
+## 隐私与安全
+
+SpaceLens 只读取你在 Finder 中选择预览的内容，不上传文件，不收集使用数据，也不加载远程资源。详细说明见[隐私说明](docs/PRIVACY.md)和[安全策略](SECURITY.md)。
+
+## 参与开发
+
+欢迎提交问题和改进。开始前请阅读[贡献指南](CONTRIBUTING.md)。项目的自动检查、构建边界和维护流程见[维护说明](docs/MAINTENANCE.md)。
+
+## 许可证
+
+SpaceLens 使用 [MIT License](LICENSE)。

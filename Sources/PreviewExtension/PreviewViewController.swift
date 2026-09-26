@@ -171,10 +171,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             context.duration = 0.18
             split.animator().setPosition(position, ofDividerAt: 0)
         }, completionHandler: { [weak self] in
-            // Guarantee the final position even if the animation is interrupted, then re-match the
-            // document views: a small file can load before the pane reaches its final width.
-            self?.split.setPosition(position, ofDividerAt: 0)
-            self?.detailPane.syncDocumentSizes()
+            Task { @MainActor [weak self] in
+                // Guarantee the final position even if the animation is interrupted, then re-match
+                // the document views: a small file can load before the pane reaches its final width.
+                self?.split.setPosition(position, ofDividerAt: 0)
+                self?.detailPane.syncDocumentSizes()
+            }
         })
     }
 
