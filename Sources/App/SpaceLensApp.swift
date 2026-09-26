@@ -75,7 +75,6 @@ private enum SpaceLensActions {
         NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
 
-
 }
 
 @main
