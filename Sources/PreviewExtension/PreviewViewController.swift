@@ -989,8 +989,13 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
 
     private let sheetBar = NSScrollView()
     private let sheetControl = NSSegmentedControl()
+    /// Shown only when the segments do not fit, and then pops up the full sheet list.
+    private let sheetOverflowButton = NSButton()
+    private var sheetNames: [String] = []
     private var contentBottomToPane: [NSLayoutConstraint] = []
     private var contentBottomToBar: [NSLayoutConstraint] = []
+    private var sheetTrailingToPane: NSLayoutConstraint?
+    private var sheetTrailingToButton: NSLayoutConstraint?
 
     private let titleLabel = NSTextField(labelWithString: L10n.text("预览", "Preview"))
     private let subtitleLabel = NSTextField(labelWithString: "")
@@ -1091,9 +1096,17 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         sheetBar.hasVerticalScroller = false
         sheetBar.isHidden = true
         sheetBar.documentView = sheetControl
+        sheetOverflowButton.title = "»"
+        sheetOverflowButton.bezelStyle = .recessed
+        sheetOverflowButton.controlSize = .small
+        sheetOverflowButton.font = .systemFont(ofSize: 11, weight: .semibold)
+        sheetOverflowButton.toolTip = L10n.text("全部工作表", "All worksheets")
+        sheetOverflowButton.target = self
+        sheetOverflowButton.action = #selector(sheetOverflowPressed(_:))
+        sheetOverflowButton.isHidden = true
 
         for child in [titleLabel, subtitleLabel, closeButton, divider, textScroll, imageScroll,
-                      tableScroll, outlineScroll, messageLabel, sheetBar] {
+                      tableScroll, outlineScroll, messageLabel, sheetBar, sheetOverflowButton] {
             child.translatesAutoresizingMaskIntoConstraints = false
             addSubview(child)
         }
@@ -1135,11 +1148,17 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             contentBottomToPane.append(scroll.bottomAnchor.constraint(equalTo: bottomAnchor))
             contentBottomToBar.append(scroll.bottomAnchor.constraint(equalTo: sheetBar.topAnchor, constant: -8))
         }
+        sheetTrailingToPane = sheetBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12)
+        sheetTrailingToButton = sheetBar.trailingAnchor.constraint(equalTo: sheetOverflowButton.leadingAnchor, constant: -4)
         constraints.append(contentsOf: [
             sheetBar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            sheetBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             sheetBar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
-            sheetBar.heightAnchor.constraint(equalToConstant: 26)
+            sheetBar.heightAnchor.constraint(equalToConstant: 26),
+            sheetOverflowButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            sheetOverflowButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
+            sheetOverflowButton.widthAnchor.constraint(equalToConstant: 22),
+            sheetOverflowButton.heightAnchor.constraint(equalToConstant: 26),
+            sheetTrailingToPane!
         ])
         constraints.append(contentsOf: contentBottomToPane)
         NSLayoutConstraint.activate(constraints)
@@ -1168,6 +1187,41 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
     override func layout() {
         super.layout()
         syncDocumentSizes()
+        updateSheetOverflow()
+    }
+
+    /// The strip keeps its segments fully sized; when they no longer fit, the "»" button appears and
+    /// pops up the complete list.
+    private func updateSheetOverflow() {
+        guard !sheetBar.isHidden else {
+            setSheetOverflowVisible(false)
+            return
+        }
+        let needed = sheetControl.fittingSize.width
+        setSheetOverflowVisible(needed > sheetBar.contentSize.width + 1)
+    }
+
+    private func setSheetOverflowVisible(_ visible: Bool) {
+        guard sheetOverflowButton.isHidden == visible else { return }
+        sheetOverflowButton.isHidden = !visible
+        sheetTrailingToButton?.isActive = visible
+        sheetTrailingToPane?.isActive = !visible
+    }
+
+    @objc private func sheetOverflowPressed(_ sender: NSButton) {
+        let menu = NSMenu()
+        for (index, name) in sheetNames.enumerated() {
+            let item = NSMenuItem(title: name, action: #selector(sheetMenuItemSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            item.state = index == sheetControl.selectedSegment ? .on : .off
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+    }
+
+    @objc private func sheetMenuItemSelected(_ sender: NSMenuItem) {
+        onSelectSheet?(sender.tag)
     }
 
     /// Re-matches every document view to its clip view. Also called after the pane's expand
@@ -1320,6 +1374,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
     /// Shows one segment per worksheet. A single-sheet workbook keeps the bar hidden.
     private func applySheetBar(_ snapshot: PreviewSnapshot) {
         let names = snapshot.sheetNames
+        sheetNames = names
         guard names.count > 1 else {
             setSheetBarVisible(false)
             return
@@ -1335,6 +1390,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
                                               width: max(sheetControl.fittingSize.width, 10),
                                               height: 26)
         setSheetBarVisible(true)
+        updateSheetOverflow()
     }
 
     private func setSheetBarVisible(_ visible: Bool) {

@@ -13,7 +13,7 @@ SpaceLens 是一个开源的 macOS Quick Look 扩展，用来直接预览文件�
 - 支持 Markdown、代码、配置、JSON、JSON Lines、TSV、plist、SQLite 和 Jupyter Notebook。
 - 支持 TAR、GZ、TGZ、BZ2、TBZ2、XZ、TXZ 等常见归档格式。
 - 支持 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
-- 文件夹的右侧窗格可以把 `.xlsx` / `.xlsm` 的工作表读成表格，并用底部标签栏切换工作表：只读、公式不求解、宏不读取。
+- 文件夹的右侧窗格可以把 `.xlsx` / `.xlsm` 的工作表读成表格，并用底部标签栏切换工作表（工作表多时右侧会出现“»”完整列表）：只读、公式不求解、宏不读取。
 - 界面提供简体中文与英文两种语言，可在“通用设置 → 语言”中切换；预览窗口使用同一语言。
 - 日期和明暗外观跟随 macOS 设置。
 - 设置界面按“功能设置 / 通用设置 / 关于”分区，集中显示扩展状态与预览范围，并提供菜单栏图标、开机自启动与检查更新。
