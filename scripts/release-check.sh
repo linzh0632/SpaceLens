@@ -30,6 +30,9 @@ product="$derived_data/Build/Products/Release/SpaceLens.app"
 app_info="$product/Contents/Info.plist"
 preview_info="$product/Contents/PlugIns/SpaceLensPreview.appex/Contents/Info.plist"
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_info")" == "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$preview_info")" ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app_info")" == "AppIcon" ]]
+[[ -s "$product/Contents/Resources/AppIcon.icns" ]]
+[[ -s "$product/Contents/Resources/Assets.car" ]]
 if /usr/libexec/PlistBuddy -c 'Print :CFBundleDocumentTypes' "$app_info" >/dev/null 2>&1; then
     echo "Release app unexpectedly declares document opening roles." >&2
     exit 1
