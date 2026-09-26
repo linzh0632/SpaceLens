@@ -1,11 +1,13 @@
 import SwiftUI
 import AppKit
 import OSLog
+import ServiceManagement
 
 private let appLogger = Logger(subsystem: "io.github.linzh0632.SpaceLens", category: "app")
 
 private enum SpaceLensPreference {
     static let showMenuBarIcon = "showMenuBarIcon"
+    static let checkForUpdatesAutomatically = "checkForUpdatesAutomatically"
 }
 
 @MainActor
@@ -163,12 +165,116 @@ private enum PreviewExtensionElection {
     }
 }
 
+/// Registers the app as a login item, so previews are available right after signing in.
+/// `SMAppService` needs macOS 13; on macOS 12 the settings row reports that instead.
+private enum LaunchAtLogin {
+    static var isSupported: Bool {
+        if #available(macOS 13.0, *) { return true }
+        return false
+    }
+
+    static var isEnabled: Bool {
+        guard #available(macOS 13.0, *) else { return false }
+        return SMAppService.mainApp.status == .enabled
+    }
+
+    /// Returns whether the requested state is now in effect.
+    @discardableResult
+    static func setEnabled(_ enabled: Bool) -> Bool {
+        guard #available(macOS 13.0, *) else { return false }
+        do {
+            if enabled {
+                if SMAppService.mainApp.status != .enabled { try SMAppService.mainApp.register() }
+            } else if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            }
+            appLogger.notice("Login item set to \(enabled, privacy: .public)")
+        } catch {
+            appLogger.error("Login item change failed: \(error.localizedDescription, privacy: .public)")
+        }
+        return isEnabled == enabled
+    }
+}
+
+/// Asks GitHub for the latest release. This is the only network request SpaceLens makes, and it is
+/// limited to a version comparison: no file, file name or usage data is sent.
+@MainActor
+private final class UpdateCenter: ObservableObject {
+    enum Status: Equatable {
+        case idle
+        case checking
+        case upToDate
+        case available(String)
+        case failed
+    }
+
+    static let shared = UpdateCenter()
+    private static let releaseEndpoint = "https://api.github.com/repos/linzh0632/SpaceLens/releases/latest"
+
+    @Published private(set) var status: Status = .idle
+
+    var currentVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    }
+
+    var versionText: String {
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "\(currentVersion)（\(build)）"
+    }
+
+    func check() async {
+        guard status != .checking, let url = URL(string: Self.releaseEndpoint) else { return }
+        status = .checking
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+                appLogger.notice("Update check returned HTTP \(code, privacy: .public)")
+                status = .failed
+                return
+            }
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let tag = (object?["tag_name"] as? String) ?? ""
+            let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+            guard !latest.isEmpty else {
+                status = .failed
+                return
+            }
+            let newer = Self.isNewer(latest, than: currentVersion)
+            appLogger.notice("Update check: latest \(latest, privacy: .public), newer \(newer, privacy: .public)")
+            status = newer ? .available(latest) : .upToDate
+        } catch {
+            appLogger.notice("Update check failed: \(error.localizedDescription, privacy: .public)")
+            status = .failed
+        }
+    }
+
+    private static func isNewer(_ candidate: String, than current: String) -> Bool {
+        let left = candidate.split(separator: ".").map { Int($0) ?? 0 }
+        let right = current.split(separator: ".").map { Int($0) ?? 0 }
+        for index in 0..<max(left.count, right.count) {
+            let a = index < left.count ? left[index] : 0
+            let b = index < right.count ? right[index] : 0
+            if a != b { return a > b }
+        }
+        return false
+    }
+}
+
+@MainActor
 private final class SpaceLensAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Checking for updates is opt-in, so an unset preference simply means "off".
         MenuBarController.shared.setEnabled(UserDefaults.standard.bool(forKey: SpaceLensPreference.showMenuBarIcon))
         let status = PreviewExtensionElection.activateForThisSession()
         appLogger.notice("Launch check: preview extension status \(String(describing: status), privacy: .public)")
         SpaceLensExtensionAlert.presentIfNeeded(status)
+        if UserDefaults.standard.bool(forKey: SpaceLensPreference.checkForUpdatesAutomatically) {
+            Task { await UpdateCenter.shared.check() }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -218,6 +324,8 @@ private enum SpaceLensExtensionAlert {
 }
 
 private enum SpaceLensActions {
+    private static let projectURL = "https://github.com/linzh0632/SpaceLens"
+
     static func openSystemSettings() {
         guard let settings = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") else { return }
         NSWorkspace.shared.open(settings)
@@ -227,6 +335,18 @@ private enum SpaceLensActions {
         NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
 
+    static func openProjectPage() {
+        open(projectURL)
+    }
+
+    static func openReleasesPage() {
+        open(projectURL + "/releases")
+    }
+
+    private static func open(_ address: String) {
+        guard let url = URL(string: address) else { return }
+        NSWorkspace.shared.open(url)
+    }
 }
 
 @main
@@ -237,40 +357,71 @@ struct SpaceLensApp: App {
         WindowGroup("SpaceLens 设置") {
             SpaceLensSettingsView()
         }
-        .windowStyle(.titleBar)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) { }
         }
     }
 }
 
+private enum SettingsPage: String, CaseIterable, Identifiable {
+    case features
+    case general
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .features: return "功能设置"
+        case .general: return "通用设置"
+        case .about: return "关于"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .features: return "slider.horizontal.3"
+        case .general: return "gearshape"
+        case .about: return "info.circle"
+        }
+    }
+}
+
 private struct SpaceLensSettingsView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage(SpaceLensPreference.showMenuBarIcon) private var showMenuBarIcon = false
+    @AppStorage(SpaceLensPreference.checkForUpdatesAutomatically) private var checkForUpdates = false
+    @State private var page: SettingsPage? = .features
     @State private var extensionStatus: PreviewExtensionElection.Status?
-
-    private var versionText: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return "版本 \(version)（\(build)）"
-    }
-
-    private var extensionIsEmbedded: Bool {
-        PreviewExtensionElection.extensionURL != nil
-    }
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @ObservedObject private var updates = UpdateCenter.shared
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                header
-                settingsSection
-                extensionSection
-                formatsSection
-                privacyFooter
+        HStack(spacing: 0) {
+            sidebar
+            // The scroll view paints its own background over anything placed behind it, so the content
+            // fill is drawn inside it and stretched to at least the visible height.
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Text(currentPage.title)
+                            .font(.system(size: 22, weight: .bold))
+                        switch currentPage {
+                        case .features: featuresPage
+                        case .general: generalPage
+                        case .about: aboutPage
+                        }
+                    }
+                    .padding(Self.pageInset)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .topLeading)
+                    .background(contentFill)
+                }
             }
-            .padding(28)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .frame(minWidth: 700, idealWidth: 760, minHeight: 540, idealHeight: 580)
+        .frame(minWidth: 760, idealWidth: 820, minHeight: 560, idealHeight: 620)
+        // macOS defaults to checkboxes; the switch matches the rest of the row layout.
+        .toggleStyle(.switch)
         .onAppear {
             MenuBarController.shared.setEnabled(showMenuBarIcon)
         }
@@ -282,75 +433,215 @@ private struct SpaceLensSettingsView: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 16) {
-            Image(systemName: "viewfinder")
-                .font(.system(size: 38, weight: .medium))
-                .foregroundColor(.accentColor)
-                .frame(width: 54, height: 54)
-                .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("SpaceLens").font(.largeTitle.bold())
-                Text("按下空格，多看一点。").foregroundColor(.secondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 5) {
-                Label(extensionIsEmbedded ? "预览扩展已安装" : "未找到预览扩展",
-                      systemImage: extensionIsEmbedded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .foregroundColor(extensionIsEmbedded ? .green : .orange)
-                Text(versionText).font(.caption).foregroundColor(.secondary)
-            }
-        }
-        .padding(.bottom, 4)
+    /// Shared inset, so the sidebar title lines up with the page title.
+    private static let pageInset: CGFloat = 28
+
+    // The colours are explicit because the system background colours resolve to the same value
+    // behind a scroll view, which would leave the sidebar and the content indistinguishable.
+    private var sidebarFill: Color {
+        colorScheme == .dark ? Color(white: 0.18) : Color(white: 0.93)
     }
 
-    private var settingsSection: some View {
-        settingCard(title: "常规", symbol: "gearshape") {
-            Toggle(isOn: $showMenuBarIcon) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("在菜单栏显示 SpaceLens")
-                    Text("在菜单栏提供打开设置、进入 Quick Look 系统设置和退出应用的快捷入口。")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .toggleStyle(.switch)
-        }
+    private var contentFill: Color {
+        colorScheme == .dark ? Color(white: 0.12) : Color(white: 1.0)
     }
 
-    private var extensionSection: some View {
-        settingCard(title: "Quick Look 扩展", symbol: "eye") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label(extensionStatusText, systemImage: extensionStatusSymbol)
-                        .foregroundColor(extensionStatusColor)
-                    Spacer()
-                    Button("重新检查") {
-                        Task { extensionStatus = await PreviewExtensionElection.currentState() }
+    private var cardFill: Color {
+        colorScheme == .dark ? Color(white: 0.17) : Color(white: 0.97)
+    }
+
+    private var currentPage: SettingsPage { page ?? .features }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("SpaceLens")
+                .font(.system(size: 20, weight: .semibold))
+                .padding(.horizontal, 12)
+                // Same inset as the page title, so both headings sit on one line.
+                .padding(.top, Self.pageInset)
+                .padding(.bottom, 14)
+            ForEach(SettingsPage.allCases) { item in
+                sidebarRow(item)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .frame(width: 208)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(sidebarFill.ignoresSafeArea())
+    }
+
+    private func sidebarRow(_ item: SettingsPage) -> some View {
+        let selected = currentPage == item
+        return Button {
+            page = item
+        } label: {
+            Label(item.title, systemImage: item.symbol)
+                .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                .foregroundColor(selected ? .white : .primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(selected ? Color.accentColor : Color.clear)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - 功能设置
+
+    private var featuresPage: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            section("预览扩展") {
+                card {
+                    settingRow("状态") {
+                        Label(extensionStatusText, systemImage: extensionStatusSymbol)
+                            .foregroundColor(extensionStatusColor)
                     }
-                    .controlSize(.small)
+                    divider
+                    settingRow("重新检查") {
+                        Button("重新检查") {
+                            Task { extensionStatus = await PreviewExtensionElection.currentState() }
+                        }
+                    }
+                    divider
+                    settingRow("系统设置") {
+                        Button("打开系统设置", action: SpaceLensActions.openSystemSettings)
+                    }
                 }
-                Text("SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，重新打开 SpaceLens 后自动恢复。")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("如果你在系统设置中手动停用了扩展，SpaceLens 不会在下次启动时覆盖这个选择。")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 10) {
-                    Button("打开系统设置", action: SpaceLensActions.openSystemSettings)
-                    Button("在 Finder 中显示应用", action: SpaceLensActions.revealApplication)
+                helper("SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，重新打开 SpaceLens 后自动恢复。如果你在系统设置中手动停用了扩展，SpaceLens 不会覆盖这个选择。")
+            }
+            section("预览范围") {
+                card {
+                    settingRow("文件与归档") {
+                        value("文件夹、ZIP、TAR、GZ、BZ2、XZ")
+                    }
+                    divider
+                    settingRow("文本与文档") {
+                        value("代码、配置、Markdown、Notebook、TeX")
+                    }
+                    divider
+                    settingRow("数据与图表") {
+                        value("JSON、plist、SQLite、Parquet、Arrow、Avro、图表")
+                    }
                 }
+                helper("图片、PDF、音视频等格式继续使用 macOS 原生预览，SpaceLens 不会成为这些文件的双击打开应用。归档内的 SQLite 与列式数据不在右侧窗格预览，以免写入磁盘。")
             }
         }
     }
+
+    // MARK: - 通用设置
+
+    private var generalPage: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            section("外观") {
+                card {
+                    settingRow("在菜单栏显示") {
+                        Toggle("", isOn: $showMenuBarIcon).labelsHidden()
+                            .controlSize(.mini)
+                    }
+                }
+                helper("在菜单栏提供打开 SpaceLens、进入 Quick Look 系统设置和退出应用的入口。")
+            }
+            section("启动") {
+                card {
+                    settingRow("开机自启动") {
+                        if LaunchAtLogin.isSupported {
+                            Toggle("", isOn: launchAtLoginBinding).labelsHidden()
+                                .controlSize(.mini)
+                        } else {
+                            value("需要 macOS 13 或更高版本")
+                        }
+                    }
+                }
+                helper("登录 Mac 后自动启动 SpaceLens，这样无需手动打开就能使用预览。")
+            }
+            section("更新") {
+                card {
+                    settingRow("自动检查更新") {
+                        Toggle("", isOn: $checkForUpdates).labelsHidden()
+                            .controlSize(.mini)
+                    }
+                    divider
+                    settingRow("检查更新") {
+                        Button("立即检查") {
+                            Task { await updates.check() }
+                        }
+                    }
+                }
+                helper(updateHelperText)
+            }
+        }
+    }
+
+    // MARK: - 关于
+
+    private var aboutPage: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            card {
+                HStack(alignment: .center, spacing: 16) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("SpaceLens")
+                            .font(.system(size: 20, weight: .semibold))
+                        Text("按下空格，多看一点。")
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
+                divider
+                settingRow("当前版本") {
+                    HStack(spacing: 10) {
+                        Text(updates.versionText).foregroundColor(.secondary)
+                        Button("检查更新") {
+                            Task { await updates.check() }
+                        }
+                    }
+                }
+            }
+            section("隐私与许可") {
+                card {
+                    settingRow("预览处理") {
+                        value("全部在本机完成")
+                    }
+                    divider
+                    settingRow("网络请求") {
+                        value(checkForUpdates ? "仅检查更新时访问 GitHub" : "已关闭")
+                    }
+                    divider
+                    settingRow("项目主页") {
+                        Button("在 GitHub 上查看", action: SpaceLensActions.openProjectPage)
+                    }
+                }
+                helper("SpaceLens 使用 MIT License。不创建账号、不包含遥测、不上传文件；预览内容不会离开你的 Mac。")
+            }
+        }
+    }
+
+    // MARK: - 绑定
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLogin },
+            set: { requested in
+                launchAtLogin = LaunchAtLogin.setEnabled(requested) ? requested : LaunchAtLogin.isEnabled
+            }
+        )
+    }
+
+    // MARK: - 状态文案
 
     private var extensionStatusText: String {
         switch extensionStatus {
         case .enabled: return "预览已启用"
         case .disabled: return "预览已停用"
-        case .notEmbedded: return "当前应用中未找到预览扩展"
+        case .notEmbedded: return "未找到预览扩展"
         case .unavailable: return "无法读取扩展状态"
         case nil: return "正在检查扩展状态…"
         }
@@ -376,57 +667,72 @@ private struct SpaceLensSettingsView: View {
         }
     }
 
-    private var formatsSection: some View {
-        settingCard(title: "预览范围", symbol: "doc.text.magnifyingglass") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    formatColumn("文件与归档", "文件夹、ZIP、TAR、GZ、BZ2、XZ", "folder")
-                    formatColumn("文本与文档", "代码、配置、Markdown、Notebook、TeX", "doc.text")
-                    formatColumn("数据与图表", "JSON、plist、SQLite、Parquet、Arrow、Avro、图表", "tablecells")
-                }
-                Text("图片、PDF、音视频等格式继续使用 macOS 原生预览。SpaceLens 只提供 Quick Look，不会成为这些文件的双击打开应用。")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+    private var updateHelperText: String {
+        switch updates.status {
+        case .idle:
+            return checkForUpdates
+                ? "启动时会向 GitHub 查询最新版本号，不发送文件、文件名或使用数据。"
+                : "已关闭自动检查；仍可手动检查更新。"
+        case .checking:
+            return "正在检查更新…"
+        case .upToDate:
+            return "已是最新版本。"
+        case .available(let version):
+            return "发现新版本 \(version)，可在 GitHub 的发布页面查看。"
+        case .failed:
+            return "检查更新失败：可能没有网络连接，或项目尚未在 GitHub 发布正式版本。"
         }
     }
 
-    private var privacyFooter: some View {
-        HStack {
-            Label("所有预览均在本机处理", systemImage: "lock.shield")
-            Spacer()
-            Text("无需账号 · 无文件上传")
-        }
-        .font(.caption)
-        .foregroundColor(.secondary)
-        .padding(.horizontal, 4)
-    }
+    // MARK: - 组件
 
-    private func settingCard<Content: View>(title: String, symbol: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Label(title, systemImage: symbol)
-                .font(.headline)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
-            Divider()
-            content()
-                .padding(16)
-        }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.primary.opacity(0.08)))
-    }
-
-    private func formatColumn(_ title: String, _ detail: String, _ symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: symbol).font(.subheadline.weight(.semibold))
-            Text(detail)
-                .font(.caption)
+    private func section<Content: View>(_ title: String,
+                                        @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
                 .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            content()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            content()
+        }
+        .background(cardFill)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.primary.opacity(0.08))
+        )
+    }
+
+    private func settingRow<Content: View>(_ title: String,
+                                           @ViewBuilder trailing: () -> Content) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+            Spacer(minLength: 12)
+            trailing()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var divider: some View {
+        Divider().padding(.leading, 16)
+    }
+
+    private func value(_ text: String) -> some View {
+        Text(text)
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.trailing)
+    }
+
+    private func helper(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
