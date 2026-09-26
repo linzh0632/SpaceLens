@@ -7,6 +7,9 @@ import UniformTypeIdentifiers
 final class PreviewLoaderTests: XCTestCase {
     var directory: URL!
     override func setUpWithError() throws {
+        // Pin the language so the assertions below never depend on the machine's preferences or on
+        // the system language.
+        L10n.pinForTesting(.chinese)
         directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }

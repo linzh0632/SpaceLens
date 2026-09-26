@@ -11,10 +11,10 @@ enum DocumentPreview {
     static func load(source: String, truncated: Bool, name: String, ext: String,
                      byteLimit: Int) throws -> PreviewSnapshot {
         try Task.checkCancellation()
-        let suffix = truncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""
+        let suffix = truncated ? L10n.text(" · 仅显示前 \(formatBytes(Int64(byteLimit)))", " · showing the first \(formatBytes(Int64(byteLimit))) only") : ""
         if ext == "ipynb" {
             guard !truncated else {
-                throw PreviewFailure.malformedText("Jupyter Notebook 超过 \(formatBytes(Int64(byteLimit))) 的安全读取上限。")
+                throw PreviewFailure.malformedText(L10n.text("Jupyter Notebook 超过 \(formatBytes(Int64(byteLimit))) 的安全读取上限。", "The Jupyter Notebook exceeds the \(formatBytes(Int64(byteLimit))) safe read limit."))
             }
             return try loadNotebook(name: name, source: source)
         }
@@ -32,7 +32,7 @@ enum DocumentPreview {
         }
         return PreviewSnapshot(
             title: name,
-            summary: "SpaceLens · \(format) · \(lineCount(source)) 行\(suffix)",
+            summary: L10n.text("SpaceLens · \(format) · \(lineCount(source)) 行\(suffix)", "SpaceLens · \(format) · \(lineCount(source)) lines\(suffix)"),
             body: body,
             truncated: truncated,
             contentKind: .markdown,
@@ -45,12 +45,12 @@ enum DocumentPreview {
         do {
             object = try JSONSerialization.jsonObject(with: Data(source.utf8))
         } catch {
-            throw PreviewFailure.malformedText("Jupyter Notebook 格式错误：\(error.localizedDescription)")
+            throw PreviewFailure.malformedText(L10n.text("Jupyter Notebook 格式错误：\(error.localizedDescription)", "Invalid Jupyter Notebook: \(error.localizedDescription)"))
         }
         guard let root = object as? [String: Any],
               let cells = root["cells"] as? [[String: Any]],
               root["nbformat"] is NSNumber else {
-            throw PreviewFailure.malformedText("Jupyter Notebook 格式错误：缺少 nbformat 或 cells。")
+            throw PreviewFailure.malformedText(L10n.text("Jupyter Notebook 格式错误：缺少 nbformat 或 cells。", "Invalid Jupyter Notebook: nbformat or cells is missing."))
         }
         let language = notebookLanguage(root)
         let visible = cells.prefix(maximumNotebookCells)
@@ -71,18 +71,18 @@ enum DocumentPreview {
                 let outputs = (cell["outputs"] as? [[String: Any]] ?? []).prefix(maximumOutputsPerCell)
                 for output in outputs {
                     if let value = notebookOutput(output), !value.isEmpty {
-                        rendered.append("输出：\n```text\n\(clipped(value, limit: maximumOutputCharacters))\n```")
+                        rendered.append(L10n.text("输出：\n```text\n\(clipped(value, limit: maximumOutputCharacters))\n```", "Output:\n```text\n\(clipped(value, limit: maximumOutputCharacters))\n```"))
                     }
                 }
             default:
-                rendered.append("原始单元格 \(index + 1)：\n```text\n\(text)\n```")
+                rendered.append(L10n.text("原始单元格 \(index + 1)：\n```text\n\(text)\n```", "Raw cell \(index + 1):\n```text\n\(text)\n```"))
             }
         }
         let limited = cells.count > maximumNotebookCells
-        let limitNote = limited ? " · 仅显示前 \(maximumNotebookCells) 个单元格" : ""
+        let limitNote = limited ? L10n.text(" · 仅显示前 \(maximumNotebookCells) 个单元格", " · showing the first \(maximumNotebookCells) cells only") : ""
         return PreviewSnapshot(
             title: name,
-            summary: "SpaceLens · Jupyter Notebook · \(cells.count) 个单元格 · \(markdownCount) 个 Markdown · \(codeCount) 个代码\(limitNote)",
+            summary: L10n.text("SpaceLens · Jupyter Notebook · \(cells.count) 个单元格 · \(markdownCount) 个 Markdown · \(codeCount) 个代码\(limitNote)", "SpaceLens · Jupyter Notebook · \(cells.count) cells · \(markdownCount) Markdown · \(codeCount) code\(limitNote)"),
             body: rendered.joined(separator: "\n\n"),
             truncated: limited,
             contentKind: .markdown,

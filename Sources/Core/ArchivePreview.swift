@@ -12,17 +12,17 @@ enum ArchivePreview {
 
     static func load(_ url: URL, entryLimit: Int) throws -> PreviewSnapshot {
         guard let archive = archive_read_new() else {
-            throw PreviewFailure.damagedArchive("无法初始化归档读取器")
+            throw PreviewFailure.damagedArchive(L10n.text("无法初始化归档读取器", "Cannot initialize the archive reader"))
         }
         defer { _ = archive_read_free(archive) }
 
         guard archive_read_support_filter_all(archive) >= archiveWarn,
               archive_read_support_format_all(archive) >= archiveWarn else {
-            throw PreviewFailure.unsupportedArchive("系统归档库无法启用所需格式")
+            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用所需格式", "The system archive library cannot enable the required formats"))
         }
         let requiresCompression = url.pathExtension.lowercased() != "tar"
         if requiresCompression, archive_read_support_format_raw(archive) < archiveWarn {
-            throw PreviewFailure.unsupportedArchive("系统归档库无法启用独立压缩流")
+            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用独立压缩流", "The system archive library cannot enable standalone compression streams"))
         }
         let opened = url.path.withCString {
             archive_read_open_filename(archive, $0, 64 * 1024)
@@ -48,7 +48,7 @@ enum ArchivePreview {
             guard status >= archiveWarn, let entry else { throw archiveError(archive) }
             if items.isEmpty, requiresCompression,
                (archive_filter_name(archive, 0).map(String.init(cString:)) ?? "none").lowercased() == "none" {
-                throw PreviewFailure.damagedArchive("文件没有有效的压缩数据层")
+                throw PreviewFailure.damagedArchive(L10n.text("文件没有有效的压缩数据层", "The file has no valid compressed data layer"))
             }
 
             guard items.count < entryLimit else {
@@ -57,7 +57,7 @@ enum ArchivePreview {
             }
             let rawPath = archive_entry_pathname_utf8(entry).map(String.init(cString:))
                 ?? archive_entry_pathname(entry).map(String.init(cString:))
-                ?? "<无法解码的文件名>"
+                ?? L10n.text("<无法解码的文件名>", "<undecodable file name>")
             let path = normalized(rawPath)
             if path.isEmpty {
                 _ = archive_read_data_skip(archive)
@@ -88,11 +88,11 @@ enum ArchivePreview {
 
             var warnings: [String] = []
             if isUnsafePath(path) {
-                warnings.append("不安全路径")
+                warnings.append(L10n.text("不安全路径", "Unsafe path"))
                 unsafeCount += 1
             }
             if archive_entry_is_encrypted(entry) == 1 {
-                warnings.append("已加密")
+                warnings.append(L10n.text("已加密", "Encrypted"))
                 encryptedCount += 1
             }
             let modificationDate: Date? = archive_entry_mtime_is_set(entry) != 0
@@ -100,13 +100,13 @@ enum ArchivePreview {
             let filter = filterName(archive)
             let displayKind: String
             switch kind {
-            case .folder: displayKind = "文件夹"
-            case .link: displayKind = "链接"
-            default: displayKind = "文件"
+            case .folder: displayKind = L10n.text("文件夹", "Folder")
+            case .link: displayKind = L10n.text("链接", "Link")
+            default: displayKind = L10n.text("文件", "File")
             }
             let sizeText = size.map { " · \(formatBytes($0))" } ?? ""
             let dateText = modificationDate.map { " · \(formatDate($0))" } ?? ""
-            let warningText = warnings.isEmpty ? "" : " · ⚠︎ " + warnings.joined(separator: "、")
+            let warningText = warnings.isEmpty ? "" : " · ⚠︎ " + warnings.joined(separator: L10n.text("、", "; "))
             rows.append("[\(displayKind)] \(escaped(path))\(sizeText) · \(filter)\(dateText)\(warningText)")
             items.append(.init(path: escaped(path), sourcePath: path, kind: kind, size: size,
                                modificationDate: modificationDate,
@@ -116,17 +116,18 @@ enum ArchivePreview {
         }
 
         var notices: [String] = []
-        if truncated { notices.append("仅显示前 \(entryLimit) 项") }
-        if linkCount > 0 { notices.append("\(linkCount) 项链接") }
-        if encryptedCount > 0 { notices.append("\(encryptedCount) 项加密") }
-        if unsafeCount > 0 { notices.append("\(unsafeCount) 项路径不安全") }
-        let noticeText = notices.isEmpty ? "" : " · ⚠︎ " + notices.joined(separator: "、")
+        if truncated { notices.append(L10n.text("仅显示前 \(entryLimit) 项", "Showing the first \(entryLimit) entries")) }
+        if linkCount > 0 { notices.append(L10n.text("\(linkCount) 项链接", "\(linkCount) links")) }
+        if encryptedCount > 0 { notices.append(L10n.text("\(encryptedCount) 项加密", "\(encryptedCount) encrypted")) }
+        if unsafeCount > 0 { notices.append(L10n.text("\(unsafeCount) 项路径不安全", "\(unsafeCount) unsafe paths")) }
+        let noticeText = notices.isEmpty ? "" : " · ⚠︎ " + notices.joined(separator: L10n.text("、", "; "))
         let type = archiveType(url)
         let format = formatName(archive)
         return PreviewSnapshot(
             title: url.lastPathComponent,
-            summary: "SpaceLens · \(type) · \(folderCount) 个文件夹 · \(fileCount) 个文件 · \(formatBytes(totalBytes)) · \(format)\(noticeText)",
-            body: rows.isEmpty ? "这个归档中没有可显示的条目。" : rows.joined(separator: "\n"),
+            summary: L10n.text("SpaceLens · \(type) · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · \(formatBytes(totalBytes)) · \(format)\(noticeText)",
+                              "SpaceLens · \(type) · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · \(formatBytes(totalBytes)) · \(format)\(noticeText)"),
+            body: rows.isEmpty ? L10n.text("这个归档中没有可显示的条目。", "This archive has no displayable entries.") : rows.joined(separator: "\n"),
             truncated: truncated,
             contentKind: .archive,
             items: items
@@ -134,18 +135,18 @@ enum ArchivePreview {
     }
 
     private static func archiveError(_ archive: OpaquePointer?) -> PreviewFailure {
-        let detail = archive_error_string(archive).map(String.init(cString:)) ?? "无法读取归档"
+        let detail = archive_error_string(archive).map(String.init(cString:)) ?? L10n.text("无法读取归档", "Cannot read the archive")
         return .damagedArchive(detail)
     }
 
     private static func formatName(_ archive: OpaquePointer?) -> String {
-        archive_format_name(archive).map(String.init(cString:)) ?? "归档"
+        archive_format_name(archive).map(String.init(cString:)) ?? L10n.text("归档", "Archive")
     }
 
     private static func filterName(_ archive: OpaquePointer?) -> String {
         let value = archive_filter_name(archive, 0).map(String.init(cString:)) ?? "none"
         switch value.lowercased() {
-        case "none": return "未压缩"
+        case "none": return L10n.text("未压缩", "Stored")
         case "gzip": return "GZIP"
         case "bzip2": return "BZIP2"
         case "xz": return "XZ"

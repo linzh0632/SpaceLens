@@ -9,7 +9,7 @@ enum PropertyListPreview {
     static func load(_ url: URL) throws -> PreviewSnapshot {
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard size <= maximumBytes else {
-            throw PreviewFailure.malformedText("属性列表超过 20 MiB 的安全读取上限。")
+            throw PreviewFailure.malformedText(L10n.text("属性列表超过 20 MiB 的安全读取上限。", "The property list exceeds the 20 MiB safe read limit."))
         }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
         return try load(data: data, name: url.lastPathComponent)
@@ -18,7 +18,7 @@ enum PropertyListPreview {
     /// Entry point for content already in memory, e.g. a plist read out of an archive.
     static func load(data: Data, name: String) throws -> PreviewSnapshot {
         guard data.count <= maximumBytes else {
-            throw PreviewFailure.malformedText("属性列表超过 20 MiB 的安全读取上限。")
+            throw PreviewFailure.malformedText(L10n.text("属性列表超过 20 MiB 的安全读取上限。", "The property list exceeds the 20 MiB safe read limit."))
         }
         try Task.checkCancellation()
         var format = PropertyListSerialization.PropertyListFormat.xml
@@ -26,10 +26,10 @@ enum PropertyListPreview {
         do {
             value = try PropertyListSerialization.propertyList(from: data, options: [], format: &format)
         } catch {
-            throw PreviewFailure.malformedText("属性列表格式错误：\(error.localizedDescription)")
+            throw PreviewFailure.malformedText(L10n.text("属性列表格式错误：\(error.localizedDescription)", "Invalid property list: \(error.localizedDescription)"))
         }
         var budget = NodeBudget(remaining: maximumNodes)
-        let root = build(value, key: "根", depth: 0, budget: &budget)
+        let root = build(value, key: L10n.text("根", "Root"), depth: 0, budget: &budget)
         let formatName: String
         switch format {
         case .binary: formatName = "Binary plist"
@@ -39,7 +39,8 @@ enum PropertyListPreview {
         let truncated = budget.truncated
         return PreviewSnapshot(
             title: name,
-            summary: "SpaceLens · \(formatName) · 结构化预览\(truncated ? " · 已限制为 \(maximumNodes) 个节点/\(maximumDepth) 层" : "")",
+            summary: L10n.text("SpaceLens · \(formatName) · 结构化预览\(truncated ? " · 已限制为 \(maximumNodes) 个节点/\(maximumDepth) 层" : "")",
+                              "SpaceLens · \(formatName) · structured preview\(truncated ? " · limited to \(maximumNodes) nodes / \(maximumDepth) levels" : "")"),
             body: "",
             truncated: truncated,
             contentKind: .structured,
@@ -52,41 +53,41 @@ enum PropertyListPreview {
                               budget: inout NodeBudget) -> PreviewSnapshot.StructuredItem {
         guard budget.remaining > 0 else {
             budget.truncated = true
-            return .init(key: key, type: "已截断", value: "达到节点上限")
+            return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("达到节点上限", "Node limit reached"))
         }
         budget.remaining -= 1
         guard depth < maximumDepth else {
             budget.truncated = true
-            return .init(key: key, type: "已截断", value: "达到深度上限")
+            return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("达到深度上限", "Depth limit reached"))
         }
         if let dictionary = value as? [String: Any] {
             let children = dictionary.keys.sorted().map {
                 build(dictionary[$0]!, key: $0, depth: depth + 1, budget: &budget)
             }
-            return .init(key: key, type: "字典", children: children)
+            return .init(key: key, type: L10n.text("字典", "Dictionary"), children: children)
         }
         if let array = value as? [Any] {
             let children = array.enumerated().map {
                 build($0.element, key: "[\($0.offset)]", depth: depth + 1, budget: &budget)
             }
-            return .init(key: key, type: "数组", children: children)
+            return .init(key: key, type: L10n.text("数组", "Array"), children: children)
         }
         if let data = value as? Data {
-            return .init(key: key, type: "数据", value: "\(data.count) 字节")
+            return .init(key: key, type: L10n.text("数据", "Data"), value: L10n.text("\(data.count) 字节", "\(data.count) bytes"))
         }
         if let date = value as? Date {
-            return .init(key: key, type: "日期", value: ISO8601DateFormatter().string(from: date))
+            return .init(key: key, type: L10n.text("日期", "Date"), value: ISO8601DateFormatter().string(from: date))
         }
         if let number = value as? NSNumber {
             if CFGetTypeID(number) == CFBooleanGetTypeID() {
-                return .init(key: key, type: "布尔值", value: number.boolValue ? "true" : "false")
+                return .init(key: key, type: L10n.text("布尔值", "Boolean"), value: number.boolValue ? "true" : "false")
             }
-            return .init(key: key, type: "数字", value: number.stringValue)
+            return .init(key: key, type: L10n.text("数字", "Number"), value: number.stringValue)
         }
         if let string = value as? String {
-            return .init(key: key, type: "字符串", value: clipped(string))
+            return .init(key: key, type: L10n.text("字符串", "String"), value: clipped(string))
         }
-        return .init(key: key, type: "未知", value: clipped(String(describing: value)))
+        return .init(key: key, type: L10n.text("未知", "Unknown"), value: clipped(String(describing: value)))
     }
 
     private static func clipped(_ value: String) -> String {

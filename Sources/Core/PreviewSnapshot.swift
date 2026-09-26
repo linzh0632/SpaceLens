@@ -120,14 +120,14 @@ public enum PreviewFailure: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .unsupported: return "SpaceLens 暂不支持这种文件。"
-        case .invalidText: return "文本编码无法识别；当前支持 UTF-8 和带 BOM 的 UTF-16。"
+        case .unsupported: return L10n.text("SpaceLens 暂不支持这种文件。", "SpaceLens does not support this kind of file yet.")
+        case .invalidText: return L10n.text("文本编码无法识别；当前支持 UTF-8 和带 BOM 的 UTF-16。", "The text encoding is not recognized; UTF-8 and UTF-16 with a BOM are supported.")
         case .malformedText(let detail): return detail
-        case .damagedArchive(let detail): return "归档文件已损坏或不完整：\(detail)"
-        case .unsupportedArchive(let detail): return "暂不支持这个归档：\(detail)"
-        case .damagedDatabase(let detail): return "SQLite 数据库无法读取：\(detail)"
-        case .damagedData(let detail): return "数据文件已损坏或不完整：\(detail)"
-        case .unsupportedData(let detail): return "暂不支持这个数据文件：\(detail)"
+        case .damagedArchive(let detail): return L10n.text("归档文件已损坏或不完整：\(detail)", "The archive is corrupt or incomplete: \(detail)")
+        case .unsupportedArchive(let detail): return L10n.text("暂不支持这个归档：\(detail)", "This archive is not supported yet: \(detail)")
+        case .damagedDatabase(let detail): return L10n.text("SQLite 数据库无法读取：\(detail)", "Cannot read the SQLite database: \(detail)")
+        case .damagedData(let detail): return L10n.text("数据文件已损坏或不完整：\(detail)", "The data file is corrupt or incomplete: \(detail)")
+        case .unsupportedData(let detail): return L10n.text("暂不支持这个数据文件：\(detail)", "This data file is not supported yet: \(detail)")
         }
     }
 }
@@ -184,7 +184,8 @@ public enum PreviewLoader {
         }
         guard let text else { throw PreviewFailure.invalidText }
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: "SpaceLens · 验收文件\(truncated ? " · 仅显示前 64 KiB" : "")",
+            summary: L10n.text("SpaceLens · 文本文件\(truncated ? " · 仅显示前 64 KiB" : "")",
+                              "SpaceLens · Text file\(truncated ? " · showing the first 64 KiB" : "")"),
             body: text, truncated: truncated, contentKind: .text)
     }
 }
@@ -237,11 +238,11 @@ private enum DirectoryPreview {
             }
             let kind: String
             let size: Int64?
-            if isLink { kind = "链接"; size = nil }
-            else if isPackage { kind = "包"; size = nil; fileCount += 1 }
-            else if isDirectory { kind = "文件夹"; size = nil; folderCount += 1 }
+            if isLink { kind = L10n.text("链接", "Link"); size = nil }
+            else if isPackage { kind = L10n.text("包", "Package"); size = nil; fileCount += 1 }
+            else if isDirectory { kind = L10n.text("文件夹", "Folder"); size = nil; folderCount += 1 }
             else {
-                kind = "文件"; size = metadata.fileSize.map(Int64.init)
+                kind = L10n.text("文件", "File"); size = metadata.fileSize.map(Int64.init)
                 totalBytes += size ?? 0; fileCount += 1
             }
             rows.append(Row(path: escape(relative), sourcePath: relative, depth: depth, kind: kind,
@@ -251,16 +252,17 @@ private enum DirectoryPreview {
         rows.sort { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         let truncated = truncatedByCount || truncatedByDepth
         var limits: [String] = []
-        if truncatedByCount { limits.append("最多 \(entryLimit) 项") }
-        if truncatedByDepth { limits.append("最多 \(depthLimit) 层") }
-        let suffix = limits.isEmpty ? "" : " · 已限制：" + limits.joined(separator: "、")
+        if truncatedByCount { limits.append(L10n.text("最多 \(entryLimit) 项", "Up to \(entryLimit) entries")) }
+        if truncatedByDepth { limits.append(L10n.text("最多 \(depthLimit) 层", "Up to \(depthLimit) levels")) }
+        let suffix = limits.isEmpty ? "" : L10n.text(" · 已限制：", " · limited: ") + limits.joined(separator: L10n.text("、", "; "))
         let items = rows.map { row in
             PreviewSnapshot.Item(path: row.path, sourcePath: row.sourcePath, kind: itemKind(row.kind),
                                  size: row.size, modificationDate: row.date)
         }
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: "SpaceLens · 文件夹 · \(folderCount) 个文件夹 · \(fileCount) 个文件 · \(formatBytes(totalBytes))\(suffix)",
-            body: rows.isEmpty ? "这是一个空文件夹。" : rows.map(render).joined(separator: "\n"),
+            summary: L10n.text("SpaceLens · 文件夹 · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · \(formatBytes(totalBytes))\(suffix)",
+                              "SpaceLens · Folder · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · \(formatBytes(totalBytes))\(suffix)"),
+            body: rows.isEmpty ? L10n.text("这是一个空文件夹。", "This is an empty folder.") : rows.map(render).joined(separator: "\n"),
             truncated: truncated, contentKind: .directory, items: items)
     }
 
@@ -280,16 +282,30 @@ private enum DirectoryPreview {
 
     private static func itemKind(_ value: String) -> PreviewSnapshot.Item.Kind {
         switch value {
-        case "文件夹": return .folder
-        case "链接": return .link
-        case "包": return .package
+        case L10n.text("文件夹", "Folder"): return .folder
+        case L10n.text("链接", "Link"): return .link
+        case L10n.text("包", "Package"): return .package
         default: return .file
         }
     }
 }
 
+/// Byte sizes with the unit wording of the current language. `ByteCountFormatter` follows the
+/// system locale, which would keep printing "字节" in English mode, so the units are picked here.
 func formatBytes(_ value: Int64) -> String {
-    ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+    let bytes = Double(max(0, value))
+    guard bytes >= 1000 else {
+        return L10n.count(Int(bytes), "字节", "byte", "bytes")
+    }
+    let units = ["KB", "MB", "GB", "TB", "PB"]
+    var scaled = bytes / 1000
+    var index = 0
+    while scaled >= 1000, index < units.count - 1 {
+        scaled /= 1000
+        index += 1
+    }
+    let text = scaled < 10 ? String(format: "%.1f", scaled) : String(format: "%.0f", scaled)
+    return "\(text.hasSuffix(".0") ? String(text.dropLast(2)) : text) \(units[index])"
 }
 
 func formatDate(_ value: Date) -> String {

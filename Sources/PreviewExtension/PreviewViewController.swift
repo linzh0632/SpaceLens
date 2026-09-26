@@ -17,7 +17,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
                                    NSSplitViewDelegate {
     private let fileIcon = NSImageView()
     private let heading = NSTextField(labelWithString: "SpaceLens")
-    private let detail = NSTextField(labelWithString: "正在读取…")
+    private let detail = NSTextField(labelWithString: L10n.text("正在读取…", "Loading…"))
     private let outline = NSOutlineView()
     private let tableScroll = ReservedScrollerScrollView()
     private let split = InvisibleDividerSplitView()
@@ -202,19 +202,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         outline.backgroundColor = .textBackgroundColor
 
         let name = NSTableColumn(identifier: .nameColumn)
-        name.title = "名称"
+        name.title = L10n.text("名称", "Name")
         name.minWidth = 240
         name.width = 390
         let kind = NSTableColumn(identifier: .kindColumn)
-        kind.title = "类型"
+        kind.title = L10n.text("类型", "Type")
         kind.minWidth = 100
         kind.width = 130
         let size = NSTableColumn(identifier: .sizeColumn)
-        size.title = "大小"
+        size.title = L10n.text("大小", "Size")
         size.minWidth = 80
         size.width = 100
         let modificationDate = NSTableColumn(identifier: .modificationDateColumn)
-        modificationDate.title = "修改时间"
+        modificationDate.title = L10n.text("修改时间", "Modified")
         modificationDate.minWidth = 160
         modificationDate.width = 190
         outline.addTableColumn(name)
@@ -276,6 +276,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
     func preparePreviewOfFile(at url: URL) async throws {
         _ = view
+        applyLocalizedChrome()
+        logger.notice("SpaceLens preview language \(L10n.language.rawValue, privacy: .public)")
         let request = UUID()
         generation = request
         previewedURL = url
@@ -300,19 +302,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
 
     private func showLoading() {
         cancelDetailLoad()
-        detail.stringValue = "SpaceLens · 正在读取…"
+        detail.stringValue = L10n.text("SpaceLens · 正在读取…", "SpaceLens · Loading…")
         fileIcon.image = NSImage(systemSymbolName: "doc", accessibilityDescription: nil)
         roots = []
         outline.reloadData()
         split.isHidden = true
         containerKind = nil
         setDetailVisible(false)
-        detailPane.showPlaceholder("选择左侧的文件以预览内容。")
+        detailPane.showPlaceholder(L10n.text("选择左侧的文件以预览内容。", "Select a file on the left to preview it."))
         tableScroll.isHidden = true
         textScroll.isHidden = true
         dataScroll.isHidden = true
         diagramScroll.isHidden = true
-        emptyState.stringValue = "正在读取预览…"
+        emptyState.stringValue = L10n.text("正在读取预览…", "Loading preview…")
         emptyState.isHidden = false
     }
 
@@ -324,7 +326,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         split.isHidden = true
         switch snapshot.contentKind {
         case .directory, .zip, .archive:
-            configureOutlineColumns(name: "名称", kind: "类型", value: "大小", showsModificationDate: true)
+            configureOutlineColumns(name: L10n.text("名称", "Name"), kind: L10n.text("类型", "Type"), value: L10n.text("大小", "Size"), showsModificationDate: true)
             let isArchive = snapshot.contentKind == .zip || snapshot.contentKind == .archive
             fileIcon.image = NSImage(systemSymbolName: isArchive ? "doc.zipper" : "folder.fill",
                                      accessibilityDescription: nil)
@@ -338,15 +340,15 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             tableScroll.isHidden = roots.isEmpty
             // Nothing is selected yet, so the pane stays collapsed until a file is clicked.
             setDetailVisible(false)
-            detailPane.showPlaceholder("选择左侧的文件以预览内容。")
+            detailPane.showPlaceholder(L10n.text("选择左侧的文件以预览内容。", "Select a file on the left to preview it."))
             textScroll.isHidden = true
             dataScroll.isHidden = true
             if roots.isEmpty {
-                emptyState.stringValue = isArchive ? "这个归档中没有可显示的条目。" : "这是一个空文件夹。"
+                emptyState.stringValue = isArchive ? L10n.text("这个归档中没有可显示的条目。", "This archive has no displayable entries.") : L10n.text("这是一个空文件夹。", "This is an empty folder.")
                 emptyState.isHidden = false
             }
         case .structured, .database:
-            configureOutlineColumns(name: "键", kind: "类型", value: "值", showsModificationDate: false)
+            configureOutlineColumns(name: L10n.text("键", "Key"), kind: L10n.text("类型", "Type"), value: L10n.text("值", "Value"), showsModificationDate: false)
             let isDatabase = snapshot.contentKind == .database
             fileIcon.image = NSImage(systemSymbolName: isDatabase ? "cylinder.split.1x2.fill" : "curlybraces", accessibilityDescription: nil)
             fileIcon.contentTintColor = isDatabase ? .systemTeal : .systemPurple
@@ -361,7 +363,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             textScroll.isHidden = true
             dataScroll.isHidden = true
             if roots.isEmpty {
-                emptyState.stringValue = isDatabase ? "数据库中没有用户表。" : "没有可显示的结构。"
+                emptyState.stringValue = isDatabase ? L10n.text("数据库中没有用户表。", "The database has no user tables.") : L10n.text("没有可显示的结构。", "Nothing structured to display.")
                 emptyState.isHidden = false
             }
         case .table:
@@ -380,7 +382,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
             fileIcon.contentTintColor = isDiagram ? .systemCyan : .systemPink
             let data = isDiagram ? snapshot.diagramSVG.map { Data($0.utf8) } : snapshot.imagePNGData
             guard let data, let image = NSImage(data: data) else {
-                renderError(PreviewFailure.malformedText(isDiagram ? "图表 SVG 无法显示。" : "图片无法显示。"))
+                renderError(PreviewFailure.malformedText(isDiagram ? L10n.text("图表 SVG 无法显示。", "The diagram SVG cannot be displayed.") : L10n.text("图片无法显示。", "The image cannot be displayed.")))
                 return
             }
             diagramImage.image = image
@@ -456,11 +458,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
         detailTask = nil
     }
 
+    /// Re-applies wording that is otherwise only assigned while the view loads. Quick Look can hand
+    /// back a view controller that predates a language change, so this runs on every preview.
+    private func applyLocalizedChrome() {
+        detail.stringValue = L10n.text("正在读取…", "Loading…")
+        outline.tableColumns[3].title = L10n.text("修改时间", "Modified")
+    }
+
     private func configureOutlineColumns(name: String, kind: String, value: String,
                                          showsModificationDate: Bool) {
         outline.tableColumns[0].title = name
         outline.tableColumns[1].title = kind
         outline.tableColumns[2].title = value
+        outline.tableColumns[3].title = L10n.text("修改时间", "Modified")
         outline.tableColumns[3].isHidden = !showsModificationDate
     }
 
@@ -476,7 +486,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController,
     }
 
     private func renderError(_ error: Error) {
-        detail.stringValue = "SpaceLens · 无法读取"
+        detail.stringValue = L10n.text("SpaceLens · 无法读取", "SpaceLens · Unreadable")
         fileIcon.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
         fileIcon.contentTintColor = .systemOrange
         split.isHidden = true
@@ -575,14 +585,14 @@ private final class PreviewNode: NSObject {
 
     var kindLabel: String {
         if let structured { return structured.type }
-        guard let item else { return "文件夹" }
+        guard let item else { return L10n.text("文件夹", "Folder") }
         switch item.kind {
-        case .folder: return "文件夹"
-        case .link: return "链接"
-        case .package: return "包"
+        case .folder: return L10n.text("文件夹", "Folder")
+        case .link: return L10n.text("链接", "Link")
+        case .package: return L10n.text("包", "Package")
         case .file:
             let suffix = (name as NSString).pathExtension
-            return suffix.isEmpty ? "文件" : suffix.uppercased()
+            return suffix.isEmpty ? L10n.text("文件", "File") : suffix.uppercased()
         }
     }
 
@@ -594,13 +604,14 @@ private final class PreviewNode: NSObject {
     var modificationDateLabel: String {
         guard structured == nil else { return "" }
         guard let date = item?.modificationDate else { return "—" }
+        // Locale follows the chosen language, not the system one.
+        Self.modificationDateFormatter.locale = L10n.locale
         return Self.modificationDateFormatter.string(from: date)
     }
 
     private static let modificationDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        let language = Locale.preferredLanguages.first ?? Locale.autoupdatingCurrent.identifier
-        formatter.locale = Locale(identifier: language)
+        formatter.locale = L10n.locale
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         formatter.doesRelativeDateFormatting = false
@@ -709,7 +720,7 @@ private final class NameCell: NSTableCellView {
             icon.contentTintColor = iconColor(for: node.name)
         }
         warning.isHidden = node.item?.warnings.isEmpty != false
-        warning.toolTip = node.item?.warnings.joined(separator: "、")
+        warning.toolTip = node.item?.warnings.joined(separator: L10n.text("、", "; "))
     }
 
     private func iconName(for name: String) -> String {
@@ -930,7 +941,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
                                        NSTableViewDataSource, NSTableViewDelegate {
     var onClose: (() -> Void)?
 
-    private let titleLabel = NSTextField(labelWithString: "预览")
+    private let titleLabel = NSTextField(labelWithString: L10n.text("预览", "Preview"))
     private let subtitleLabel = NSTextField(labelWithString: "")
     private let closeButton = NSButton()
     private var textView = NSTextView()
@@ -948,7 +959,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         build()
-        showPlaceholder("选择左侧的文件以预览内容。")
+        showPlaceholder(L10n.text("选择左侧的文件以预览内容。", "Select a file on the left to preview it."))
     }
 
     required init?(coder: NSCoder) { nil }
@@ -959,13 +970,13 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
         subtitleLabel.font = .systemFont(ofSize: 11)
         subtitleLabel.textColor = .secondaryLabelColor
         subtitleLabel.lineBreakMode = .byTruncatingTail
-        closeButton.title = "关闭"
+        closeButton.title = L10n.text("关闭", "Close")
         closeButton.bezelStyle = .rounded
         closeButton.controlSize = .small
         closeButton.font = .systemFont(ofSize: 12, weight: .medium)
         closeButton.isBordered = true
-        closeButton.toolTip = "关闭右侧预览"
-        closeButton.setAccessibilityLabel("关闭右侧预览")
+        closeButton.toolTip = L10n.text("关闭右侧预览", "Close the detail preview")
+        closeButton.setAccessibilityLabel(L10n.text("关闭右侧预览", "Close the detail preview"))
         closeButton.target = self
         closeButton.action = #selector(closeButtonPressed)
 
@@ -1152,31 +1163,32 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
     // MARK: - Content
 
     func showPlaceholder(_ text: String) {
-        titleLabel.stringValue = "预览"
+        titleLabel.stringValue = L10n.text("预览", "Preview")
         subtitleLabel.stringValue = ""
         showMessage(text)
     }
 
     func showLoading(name: String) {
         titleLabel.stringValue = name
-        subtitleLabel.stringValue = "SpaceLens · 正在读取…"
-        showMessage("正在读取…")
+        subtitleLabel.stringValue = L10n.text("SpaceLens · 正在读取…", "SpaceLens · Loading…")
+        showMessage(L10n.text("正在读取…", "Loading…"))
     }
 
     func showError(name: String, message: String) {
         titleLabel.stringValue = name
-        subtitleLabel.stringValue = "SpaceLens · 无法读取"
+        subtitleLabel.stringValue = L10n.text("SpaceLens · 无法读取", "SpaceLens · Unreadable")
         showMessage(message)
     }
 
     func show(_ snapshot: PreviewSnapshot) {
+        applyLocalizedChrome()
         titleLabel.stringValue = snapshot.title
         subtitleLabel.stringValue = snapshot.summary
         hideContent()
         switch snapshot.contentKind {
         case .image:
             guard let data = snapshot.imagePNGData, let image = NSImage(data: data) else {
-                showMessage("图片无法显示。")
+                showMessage(L10n.text("图片无法显示。", "The image cannot be displayed."))
                 return
             }
             showImage(image)
@@ -1203,10 +1215,10 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             configureOutlineColumns(isContainer: false)
             outlineView.reloadData()
             outlineView.expandItem(nil, expandChildren: true)
-            if outlineRoots.isEmpty { showMessage("没有可显示的结构。") } else { outlineScroll.isHidden = false }
+            if outlineRoots.isEmpty { showMessage(L10n.text("没有可显示的结构。", "Nothing structured to display.")) } else { outlineScroll.isHidden = false }
         case .diagram:
             guard let svg = snapshot.diagramSVG, let image = NSImage(data: Data(svg.utf8)) else {
-                showMessage("图表无法显示。")
+                showMessage(L10n.text("图表无法显示。", "The diagram cannot be displayed."))
                 return
             }
             showImage(image)
@@ -1217,7 +1229,7 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             configureOutlineColumns(isContainer: true)
             outlineView.reloadData()
             outlineView.expandItem(nil, expandChildren: true)
-            if outlineRoots.isEmpty { showMessage("这是空的容器。") } else { outlineScroll.isHidden = false }
+            if outlineRoots.isEmpty { showMessage(L10n.text("这是空的容器。", "This container is empty.")) } else { outlineScroll.isHidden = false }
         }
     }
 
@@ -1258,10 +1270,19 @@ private final class DetailPreviewPane: NSView, NSOutlineViewDataSource, NSOutlin
             outlineView.addTableColumn(date)
             outlineView.outlineTableColumn = name
         }
-        outlineView.tableColumns[0].title = isContainer ? "名称" : "键"
-        outlineView.tableColumns[1].title = "类型"
-        outlineView.tableColumns[2].title = isContainer ? "大小" : "值"
+        outlineView.tableColumns[0].title = isContainer ? L10n.text("名称", "Name") : L10n.text("键", "Key")
+        outlineView.tableColumns[1].title = L10n.text("类型", "Type")
+        outlineView.tableColumns[2].title = isContainer ? L10n.text("大小", "Size") : L10n.text("值", "Value")
+        outlineView.tableColumns[3].title = L10n.text("修改时间", "Modified")
         outlineView.tableColumns[3].isHidden = !isContainer
+    }
+
+    /// See `PreviewViewController.applyLocalizedChrome()`; the pane is a separate view that also
+    /// outlives a language change.
+    private func applyLocalizedChrome() {
+        closeButton.title = L10n.text("关闭", "Close")
+        closeButton.toolTip = L10n.text("关闭右侧预览", "Close the detail preview")
+        closeButton.setAccessibilityLabel(L10n.text("关闭右侧预览", "Close the detail preview"))
     }
 
     private func rebuildTableColumns() {

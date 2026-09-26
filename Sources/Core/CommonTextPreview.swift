@@ -62,10 +62,10 @@ enum CommonTextPreview {
                                            name: name, ext: ext, byteLimit: byteLimit)
         }
         try Task.checkCancellation()
-        let suffix = textTruncated ? " · 仅显示前 \(formatBytes(Int64(byteLimit)))" : ""
+        let suffix = textTruncated ? L10n.text(" · 仅显示前 \(formatBytes(Int64(byteLimit)))", " · showing the first \(formatBytes(Int64(byteLimit))) only") : ""
         if markdownExtensions.contains(ext) {
             return PreviewSnapshot(title: name,
-                summary: "SpaceLens · Markdown · \(lineCount(source)) 行\(suffix)", body: source,
+                summary: L10n.text("SpaceLens · Markdown · \(lineCount(source)) 行\(suffix)", "SpaceLens · Markdown · \(lineCount(source)) lines\(suffix)"), body: source,
                 truncated: textTruncated, contentKind: .markdown, language: "Markdown")
         }
         if tableExtensions.contains(ext) {
@@ -77,7 +77,8 @@ enum CommonTextPreview {
         let language = languageName(extension: ext, filename: filename)
         let kind: PreviewSnapshot.ContentKind = codeExtensions.contains(ext) || specialNames.contains(filename) ? .code : .text
         return PreviewSnapshot(title: name,
-            summary: "SpaceLens · \(kind == .code ? language : "文本") · \(lineCount(source)) 行\(suffix)",
+            summary: L10n.text("SpaceLens · \(kind == .code ? language : "文本") · \(lineCount(source)) 行\(suffix)",
+                              "SpaceLens · \(kind == .code ? language : "Text") · \(lineCount(source)) lines\(suffix)"),
             body: source, truncated: textTruncated, contentKind: kind, language: language)
     }
 
@@ -121,7 +122,7 @@ enum CommonTextPreview {
         let width = min(max(1, rawHeader.count), maximumColumns)
         var used: [String: Int] = [:]
         let columns = (0..<width).map { index -> String in
-            let base = index < rawHeader.count && !rawHeader[index].isEmpty ? rawHeader[index] : "列 \(index + 1)"
+            let base = index < rawHeader.count && !rawHeader[index].isEmpty ? rawHeader[index] : L10n.text("列 \(index + 1)", "Column \(index + 1)")
             let occurrence = (used[base] ?? 0) + 1
             used[base] = occurrence
             return occurrence == 1 ? base : "\(base) (\(occurrence))"
@@ -132,10 +133,11 @@ enum CommonTextPreview {
         }
         let totalDataRows = max(0, parsed.totalRowCount - 1)
         let omitted = max(0, totalDataRows - visibleRows.count)
-        let limits = omitted > 0 ? " · 另有 \(omitted) 行未显示" : ""
-        let columnLimit = rawHeader.count > maximumColumns ? " · 仅显示前 \(maximumColumns) 列" : ""
+        let limits = omitted > 0 ? L10n.text(" · 另有 \(omitted) 行未显示", " · \(omitted) more rows not shown") : ""
+        let columnLimit = rawHeader.count > maximumColumns ? L10n.text(" · 仅显示前 \(maximumColumns) 列", " · showing the first \(maximumColumns) columns only") : ""
         return PreviewSnapshot(title: name,
-            summary: "SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(totalDataRows) 行 · \(rawHeader.count) 列\(limits)\(columnLimit)\(suffix)",
+            summary: L10n.text("SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(totalDataRows) 行 · \(rawHeader.count) 列\(limits)\(columnLimit)\(suffix)",
+                              "SpaceLens · \(delimiter == "\t" ? "TSV" : "CSV") · \(totalDataRows) rows · \(rawHeader.count) columns\(limits)\(columnLimit)\(suffix)"),
             body: source, truncated: truncated || omitted > 0 || rawHeader.count > maximumColumns,
             contentKind: .table,
             table: .init(columns: columns, rows: Array(visibleRows), omittedRowCount: omitted))
@@ -164,7 +166,7 @@ enum CommonTextPreview {
                                 row = []; field = ""
                             }
                             else if next != "\r" && !next.isWhitespace {
-                                throw PreviewFailure.malformedText("表格格式错误：引号结束后存在意外字符。")
+                                throw PreviewFailure.malformedText(L10n.text("表格格式错误：引号结束后存在意外字符。", "Invalid table: unexpected characters after a closing quote."))
                             }
                         }
                     } else { quoted = false }
@@ -181,7 +183,7 @@ enum CommonTextPreview {
                 field.append(character)
             }
         }
-        guard !quoted else { throw PreviewFailure.malformedText("表格格式错误：存在未闭合的引号。") }
+        guard !quoted else { throw PreviewFailure.malformedText(L10n.text("表格格式错误：存在未闭合的引号。", "Invalid table: an unterminated quote.")) }
         if !field.isEmpty || !row.isEmpty {
             row.append(field); totalRowCount += 1
             if rows.count < maximumRows + 1 { rows.append(row) }
@@ -198,30 +200,31 @@ enum CommonTextPreview {
             let visible = lines.prefix(maximumRows)
             roots = try visible.enumerated().map { index, line in
                 let value = try parseJSON(Data(line.utf8))
-                return try structuredItem(key: "第 \(index + 1) 行", value: value, depth: 0, budget: &budget)
+                return try structuredItem(key: L10n.text("第 \(index + 1) 行", "Row \(index + 1)"), value: value, depth: 0, budget: &budget)
             }
         } else {
             let value = try parseJSON(Data(source.utf8))
-            roots = [try structuredItem(key: "根", value: value, depth: 0, budget: &budget)]
+            roots = [try structuredItem(key: L10n.text("根", "Root"), value: value, depth: 0, budget: &budget)]
         }
         return PreviewSnapshot(title: name,
-            summary: "SpaceLens · \(lineDelimited ? "JSON Lines" : "JSON") · 结构化预览\(suffix)",
+            summary: L10n.text("SpaceLens · \(lineDelimited ? "JSON Lines" : "JSON") · 结构化预览\(suffix)",
+                              "SpaceLens · \(lineDelimited ? "JSON Lines" : "JSON") · structured preview\(suffix)"),
             body: source, truncated: truncated || budget == 0, contentKind: .structured,
             structuredItems: roots, language: "JSON")
     }
 
     private static func parseJSON(_ data: Data) throws -> Any {
         do { return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) }
-        catch { throw PreviewFailure.malformedText("JSON 格式错误：\(error.localizedDescription)") }
+        catch { throw PreviewFailure.malformedText(L10n.text("JSON 格式错误：\(error.localizedDescription)", "Invalid JSON: \(error.localizedDescription)")) }
     }
 
     private static func structuredItem(key: String, value: Any, depth: Int,
                                        budget: inout Int) throws -> PreviewSnapshot.StructuredItem {
         try Task.checkCancellation()
         guard depth <= maximumJSONDepth else {
-            return .init(key: key, type: "已截断", value: "超过 \(maximumJSONDepth) 层")
+            return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("超过 \(maximumJSONDepth) 层", "Deeper than \(maximumJSONDepth) levels"))
         }
-        guard budget > 0 else { return .init(key: key, type: "已截断", value: "达到节点上限") }
+        guard budget > 0 else { return .init(key: key, type: L10n.text("已截断", "Truncated"), value: L10n.text("达到节点上限", "Node limit reached")) }
         budget -= 1
         if let dictionary = value as? [String: Any] {
             var children: [PreviewSnapshot.StructuredItem] = []
@@ -229,7 +232,7 @@ enum CommonTextPreview {
                 guard budget > 0 else { break }
                 children.append(try structuredItem(key: childKey, value: dictionary[childKey]!, depth: depth + 1, budget: &budget))
             }
-            return .init(key: key, type: "对象", children: children)
+            return .init(key: key, type: L10n.text("对象", "Object"), children: children)
         }
         if let array = value as? [Any] {
             var children: [PreviewSnapshot.StructuredItem] = []
@@ -237,16 +240,16 @@ enum CommonTextPreview {
                 guard budget > 0 else { break }
                 children.append(try structuredItem(key: "[\(index)]", value: childValue, depth: depth + 1, budget: &budget))
             }
-            return .init(key: key, type: "数组", children: children)
+            return .init(key: key, type: L10n.text("数组", "Array"), children: children)
         }
         if value is NSNull { return .init(key: key, type: "Null", value: "null") }
         if let number = value as? NSNumber {
             if CFGetTypeID(number) == CFBooleanGetTypeID() {
-                return .init(key: key, type: "布尔值", value: number.boolValue ? "true" : "false")
+                return .init(key: key, type: L10n.text("布尔值", "Boolean"), value: number.boolValue ? "true" : "false")
             }
-            return .init(key: key, type: "数字", value: number.stringValue)
+            return .init(key: key, type: L10n.text("数字", "Number"), value: number.stringValue)
         }
-        return .init(key: key, type: "字符串", value: value as? String ?? String(describing: value))
+        return .init(key: key, type: L10n.text("字符串", "String"), value: value as? String ?? String(describing: value))
     }
 
     private static func languageName(extension ext: String, filename: String) -> String {
@@ -274,7 +277,7 @@ enum CommonTextPreview {
             "tf": "Terraform", "tfvars": "Terraform", "xsd": "XML Schema", "xsl": "XSLT",
             "xslt": "XSLT", "zig": "Zig"
         ]
-        return names[ext] ?? (ext.isEmpty ? "代码" : ext.uppercased())
+        return names[ext] ?? (ext.isEmpty ? L10n.text("代码", "Code") : ext.uppercased())
     }
 
     private static func lineCount(_ value: String) -> Int {

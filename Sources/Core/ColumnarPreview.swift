@@ -10,10 +10,10 @@ enum ColumnarPreview {
     static func load(_ url: URL) throws -> PreviewSnapshot {
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard size <= maximumFileBytes else {
-            throw PreviewFailure.unsupportedData("文件超过 64 MiB 的安全读取上限。")
+            throw PreviewFailure.unsupportedData(L10n.text("文件超过 64 MiB 的安全读取上限。", "The file exceeds the 64 MiB safe read limit."))
         }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-        guard data.count <= maximumFileBytes else { throw PreviewFailure.unsupportedData("文件超过 64 MiB 的安全读取上限。") }
+        guard data.count <= maximumFileBytes else { throw PreviewFailure.unsupportedData(L10n.text("文件超过 64 MiB 的安全读取上限。", "The file exceeds the 64 MiB safe read limit.")) }
         try Task.checkCancellation()
         switch url.pathExtension.lowercased() {
         case "parquet": return try loadParquet(url, data)
@@ -27,37 +27,37 @@ enum ColumnarPreview {
 
     private static func loadParquet(_ url: URL, _ data: Data) throws -> PreviewSnapshot {
         guard data.count >= 12, data.prefix(4) == Data("PAR1".utf8), data.suffix(4) == Data("PAR1".utf8) else {
-            throw PreviewFailure.damagedData("Parquet 文件头或文件尾标记无效。")
+            throw PreviewFailure.damagedData(L10n.text("Parquet 文件头或文件尾标记无效。", "Invalid Parquet header or footer marker."))
         }
         let footerLength = Int(try data.readUInt32LE(at: data.count - 8))
         guard footerLength > 0, footerLength <= data.count - 12 else {
-            throw PreviewFailure.damagedData("Parquet 元数据长度超出文件范围。")
+            throw PreviewFailure.damagedData(L10n.text("Parquet 元数据长度超出文件范围。", "Parquet metadata length is outside the file."))
         }
         let footerStart = data.count - 8 - footerLength
         var cursor = CompactCursor(Data(data[footerStart..<(data.count - 8)]))
         var budget = 50_000
         let metadata = try cursor.readStruct(depth: 0, budget: &budget)
         let totalRows = metadata[3]?.intValue ?? 0
-        guard totalRows >= 0 else { throw PreviewFailure.damagedData("Parquet 行数为负数。") }
+        guard totalRows >= 0 else { throw PreviewFailure.damagedData(L10n.text("Parquet 行数为负数。", "Parquet row count is negative.")) }
         let rowGroups = metadata[4]?.listValue?.count ?? 0
         let createdBy = metadata[6]?.stringValue
         let keyValues = parseKeyValues(metadata[5])
         let schemaElements = metadata[2]?.listValue?.compactMap(\.structValue) ?? []
-        guard !schemaElements.isEmpty else { throw PreviewFailure.damagedData("Parquet schema 缺失。") }
+        guard !schemaElements.isEmpty else { throw PreviewFailure.damagedData(L10n.text("Parquet schema 缺失。", "Missing Parquet schema.")) }
         let fields = parquetFields(schemaElements)
         let visible = Array(fields.prefix(maximumColumns))
         let rows = visible.map { [$0.path, $0.physical, $0.logical, $0.repetition] }
         let omitted = max(0, fields.count - visible.count)
-        var body = "行数：\(totalRows)\n行组：\(rowGroups)\n字段：\(fields.count)"
-        if let createdBy, !createdBy.isEmpty { body += "\n创建器：\(createdBy)" }
+        var body = L10n.text("行数：\(totalRows)\n行组：\(rowGroups)\n字段：\(fields.count)", "Rows: \(totalRows)\nRow groups: \(rowGroups)\nFields: \(fields.count)")
+        if let createdBy, !createdBy.isEmpty { body += L10n.text("\n创建器：\(createdBy)", "\nCreated by: \(createdBy)") }
         if !keyValues.isEmpty {
-            body += "\n\n文件元信息：\n" + keyValues.prefix(50).map { "\($0.0)：\($0.1)" }.joined(separator: "\n")
+            body += L10n.text("\n\n文件元信息：\n", "\n\nFile metadata:\n") + keyValues.prefix(50).map { "\($0.0)：\($0.1)" }.joined(separator: "\n")
         }
-        let limit = omitted > 0 ? " · 仅显示前 \(maximumColumns) 列" : ""
+        let limit = omitted > 0 ? L10n.text(" · 仅显示前 \(maximumColumns) 列", " · showing the first \(maximumColumns) columns only") : ""
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: "SpaceLens · Parquet · \(totalRows) 行 · \(fields.count) 列 · \(rowGroups) 个行组 · schema/元信息\(limit)",
+            summary: L10n.text("SpaceLens · Parquet · \(totalRows) 行 · \(fields.count) 列 · \(rowGroups) 个行组 · schema/元信息\(limit)", "SpaceLens · Parquet · \(totalRows) rows · \(fields.count) columns · \(rowGroups) row groups · schema/metadata\(limit)"),
             body: body, truncated: omitted > 0, contentKind: .table,
-            table: .init(columns: ["字段", "物理类型", "逻辑类型", "重复规则"], rows: rows, omittedRowCount: omitted))
+            table: .init(columns: [L10n.text("字段", "Field"), L10n.text("物理类型", "Physical type"), L10n.text("逻辑类型", "Logical type"), L10n.text("重复规则", "Repetition")], rows: rows, omittedRowCount: omitted))
     }
 
     private struct ParquetField { let path: String; let physical: String; let logical: String; let repetition: String }
@@ -69,14 +69,14 @@ enum ColumnarPreview {
         for (index, element) in elements.enumerated() {
             while let last = parents.last, last.remaining == 0 { parents.removeLast() }
             if !parents.isEmpty { parents[parents.count - 1].remaining -= 1 }
-            let name = element[4]?.stringValue ?? "字段 \(index)"
+            let name = element[4]?.stringValue ?? L10n.text("字段 \(index)", "Field \(index)")
             let path = index == 0 ? "" : ([parents.last?.path, name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "."))
             let children = Int(element[5]?.intValue ?? 0)
             if children > 0 { parents.append(Parent(remaining: children, path: path)) }
             guard index > 0, let type = element[1]?.intValue else { continue }
             let physical = parquetPhysical(Int(type), length: element[2]?.intValue)
             let logical = parquetLogical(Int(element[6]?.intValue ?? -1))
-            let repetition = [0: "必填", 1: "可空", 2: "重复"][Int(element[3]?.intValue ?? 1)] ?? "未知"
+            let repetition = [0: L10n.text("必填", "Required"), 1: L10n.text("可空", "Nullable"), 2: L10n.text("重复", "Repeated")][Int(element[3]?.intValue ?? 1)] ?? L10n.text("未知", "Unknown")
             result.append(.init(path: path, physical: physical, logical: logical, repetition: repetition))
         }
         return result
@@ -103,24 +103,24 @@ enum ColumnarPreview {
     // MARK: Arrow IPC / Feather v2
 
     private static func loadArrow(_ url: URL, _ data: Data) throws -> PreviewSnapshot {
-        guard data.count >= 16 else { throw PreviewFailure.damagedData("Arrow IPC 文件过短。") }
+        guard data.count >= 16 else { throw PreviewFailure.damagedData(L10n.text("Arrow IPC 文件过短。", "Arrow IPC file is too short.")) }
         if data.prefix(4) == Data("FEA1".utf8) {
-            throw PreviewFailure.unsupportedData("Feather v1 暂不支持；请转换为 Feather v2（Arrow IPC）。")
+            throw PreviewFailure.unsupportedData(L10n.text("Feather v1 暂不支持；请转换为 Feather v2（Arrow IPC）。", "Feather v1 is not supported yet; convert it to Feather v2 (Arrow IPC)."))
         }
         let magic = Data("ARROW1".utf8)
         guard data.prefix(6) == magic, data.suffix(6) == magic else {
-            throw PreviewFailure.damagedData("Arrow IPC/Feather v2 文件标记无效。")
+            throw PreviewFailure.damagedData(L10n.text("Arrow IPC/Feather v2 文件标记无效。", "Invalid Arrow IPC/Feather v2 file marker."))
         }
         let footerLength = Int(try data.readUInt32LE(at: data.count - 10))
         guard footerLength > 0, footerLength <= data.count - 16 else {
-            throw PreviewFailure.damagedData("Arrow footer 长度超出文件范围。")
+            throw PreviewFailure.damagedData(L10n.text("Arrow footer 长度超出文件范围。", "Arrow footer length is outside the file."))
         }
         let footerStart = data.count - 10 - footerLength
         let footerData = Data(data[footerStart..<(data.count - 10)])
         let footer = try FBTable.root(in: footerData)
-        guard let schema = try footer.indirectTable(field: 1) else { throw PreviewFailure.damagedData("Arrow schema 缺失。") }
+        guard let schema = try footer.indirectTable(field: 1) else { throw PreviewFailure.damagedData(L10n.text("Arrow schema 缺失。", "Missing Arrow schema.")) }
         let fields = try parseArrowFields(schema)
-        guard !fields.isEmpty else { throw PreviewFailure.damagedData("Arrow schema 没有字段。") }
+        guard !fields.isEmpty else { throw PreviewFailure.damagedData(L10n.text("Arrow schema 没有字段。", "Arrow schema has no fields.")) }
         let blocks = try footer.structVector(field: 3, stride: 24)
         let canDecodeRows = fields.allSatisfy(\.rowDecodable)
         var rows: [[String]] = []
@@ -131,33 +131,33 @@ enum ColumnarPreview {
             let offset = try footerData.readInt64LE(at: block)
             let metadataLength = Int(try footerData.readInt32LE(at: block + 8))
             guard offset >= 0, metadataLength > 0, offset <= Int64(data.count), Int(offset) + metadataLength <= data.count else {
-                throw PreviewFailure.damagedData("Arrow record batch 的偏移超出文件范围。")
+                throw PreviewFailure.damagedData(L10n.text("Arrow record batch 的偏移超出文件范围。", "Arrow record batch offset is outside the file."))
             }
             let batch = try parseArrowBatch(data: data, offset: Int(offset), metadataLength: metadataLength,
                                             fields: fields, rowBudget: max(0, maximumRows - rows.count),
                                             decodeRows: canDecodeRows)
             let (sum, overflow) = totalRows.addingReportingOverflow(batch.totalRows)
-            guard !overflow else { throw PreviewFailure.damagedData("Arrow 总行数溢出。") }
+            guard !overflow else { throw PreviewFailure.damagedData(L10n.text("Arrow 总行数溢出。", "Arrow row count overflow.")) }
             totalRows = sum
             rows.append(contentsOf: batch.rows)
             unsupportedRows = unsupportedRows || batch.unsupported
         }
-        let schemaBody = fields.map { "\($0.name)：\($0.typeName)\($0.nullable ? "?" : "")" }.joined(separator: "\n")
+        let schemaBody = fields.map { "\($0.name)" + L10n.text("：", ": ") + "\($0.typeName)\($0.nullable ? "?" : "")" }.joined(separator: "\n")
         let format = url.pathExtension.lowercased() == "feather" ? "Feather v2" : "Arrow IPC"
-        let limits = fields.count > maximumColumns ? " · 仅显示前 \(maximumColumns) 列" : ""
+        let limits = fields.count > maximumColumns ? L10n.text(" · 仅显示前 \(maximumColumns) 列", " · showing the first \(maximumColumns) columns only") : ""
         if !canDecodeRows || unsupportedRows {
-            let schemaRows = fields.prefix(maximumColumns).map { [$0.name, $0.typeName, $0.nullable ? "是" : "否"] }
+            let schemaRows = fields.prefix(maximumColumns).map { [$0.name, $0.typeName, $0.nullable ? L10n.text("是", "Yes") : L10n.text("否", "No")] }
             return PreviewSnapshot(title: url.lastPathComponent,
-                summary: "SpaceLens · \(format) · \(totalRows) 行 · \(fields.count) 列 · \(blocks.count) 个批次 · 复杂/压缩列显示 schema\(limits)",
+                summary: L10n.text("SpaceLens · \(format) · \(totalRows) 行 · \(fields.count) 列 · \(blocks.count) 个批次 · 复杂/压缩列显示 schema\(limits)", "SpaceLens · \(format) · \(totalRows) rows · \(fields.count) columns · \(blocks.count) batches · schema shown for complex or compressed columns\(limits)"),
                 body: schemaBody, truncated: true, contentKind: .table,
-                table: .init(columns: ["字段", "类型", "可空"], rows: schemaRows,
+                table: .init(columns: [L10n.text("字段", "Field"), L10n.text("类型", "Type"), L10n.text("可空", "Nullable")], rows: schemaRows,
                              omittedRowCount: max(0, fields.count - schemaRows.count)))
         }
         let columns = fields.prefix(maximumColumns).map(\.name)
         let clippedRows = rows.map { Array($0.prefix(columns.count)) }
         let omitted = max(0, Int(clamping: totalRows) - clippedRows.count)
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: "SpaceLens · \(format) · \(totalRows) 行 · \(fields.count) 列 · \(blocks.count) 个批次\(limits)",
+            summary: L10n.text("SpaceLens · \(format) · \(totalRows) 行 · \(fields.count) 列 · \(blocks.count) 个批次\(limits)", "SpaceLens · \(format) · \(totalRows) rows · \(fields.count) columns · \(blocks.count) batches\(limits)"),
             body: schemaBody, truncated: omitted > 0 || fields.count > maximumColumns,
             contentKind: .table,
             table: .init(columns: Array(columns), rows: clippedRows, omittedRowCount: omitted))
@@ -181,12 +181,12 @@ enum ColumnarPreview {
 
     private static func parseArrowFields(_ schema: FBTable) throws -> [ArrowFieldInfo] {
         let tables = try schema.tableVector(field: 1)
-        guard tables.count <= 1_000 else { throw PreviewFailure.damagedData("Arrow 字段数量异常。") }
+        guard tables.count <= 1_000 else { throw PreviewFailure.damagedData(L10n.text("Arrow 字段数量异常。", "Unexpected Arrow field count.")) }
         return try tables.map(parseArrowField)
     }
 
     private static func parseArrowField(_ table: FBTable) throws -> ArrowFieldInfo {
-        let name = try table.string(field: 0) ?? "未命名字段"
+        let name = try table.string(field: 0) ?? L10n.text("未命名字段", "Unnamed field")
         let nullable = try table.bool(field: 1, default: false)
         let typeID = Int(try table.uint8(field: 2, default: 0))
         let typeTable = try table.indirectTable(field: 3)
@@ -236,18 +236,18 @@ enum ColumnarPreview {
             prefix = Int(try data.readUInt32LE(at: messageStart)); messageStart += 4
         }
         guard prefix > 0, messageStart + prefix <= data.count, messageStart + prefix <= offset + metadataLength else {
-            throw PreviewFailure.damagedData("Arrow batch metadata 长度无效。")
+            throw PreviewFailure.damagedData(L10n.text("Arrow batch metadata 长度无效。", "Invalid Arrow batch metadata length."))
         }
         let message = try FBTable.root(in: Data(data[messageStart..<(messageStart + prefix)]))
         guard try message.uint8(field: 1, default: 0) == 3,
               let record = try message.indirectTable(field: 2) else {
-            throw PreviewFailure.damagedData("Arrow batch 消息类型无效。")
+            throw PreviewFailure.damagedData(L10n.text("Arrow batch 消息类型无效。", "Invalid Arrow batch message type."))
         }
         if try record.fieldPosition(3) != nil {
             return ArrowBatch(totalRows: try record.int64(field: 0, default: 0), rows: [], unsupported: true)
         }
         let total = try record.int64(field: 0, default: 0)
-        guard total >= 0, total <= 1_000_000_000 else { throw PreviewFailure.damagedData("Arrow 行数异常。") }
+        guard total >= 0, total <= 1_000_000_000 else { throw PreviewFailure.damagedData(L10n.text("Arrow 行数异常。", "Unexpected Arrow row count.")) }
         guard decodeRows else { return ArrowBatch(totalRows: total, rows: [], unsupported: true) }
         let nodePositions = try record.structVector(field: 1, stride: 16)
         let bufferPositions = try record.structVector(field: 2, stride: 16)
@@ -269,17 +269,17 @@ enum ColumnarPreview {
 
     private static func decodeArrowColumn(_ field: ArrowFieldInfo, rowCount: Int, nodes: [ArrowNode], buffers: [ArrowBufferInfo],
                                           nodeIndex: inout Int, bufferIndex: inout Int, bodyStart: Int, data: Data) throws -> (values:[String], unsupported:Bool) {
-        guard nodeIndex < nodes.count else { throw PreviewFailure.damagedData("Arrow field node 缺失。") }
+        guard nodeIndex < nodes.count else { throw PreviewFailure.damagedData(L10n.text("Arrow field node 缺失。", "Missing Arrow field node.")) }
         let node = nodes[nodeIndex]; nodeIndex += 1
         func nextBuffer() throws -> ArrowBufferInfo {
-            guard bufferIndex < buffers.count else { throw PreviewFailure.damagedData("Arrow data buffer 缺失。") }
+            guard bufferIndex < buffers.count else { throw PreviewFailure.damagedData(L10n.text("Arrow data buffer 缺失。", "Missing Arrow data buffer.")) }
             defer { bufferIndex += 1 }; return buffers[bufferIndex]
         }
         let validity = try nextBuffer()
         func valid(_ index: Int) throws -> Bool {
             if validity.length == 0 { return true }
             let position = try checkedBuffer(validity, bodyStart: bodyStart, data: data)
-            guard index / 8 < validity.length else { throw PreviewFailure.damagedData("Arrow validity bitmap 越界。") }
+            guard index / 8 < validity.length else { throw PreviewFailure.damagedData(L10n.text("Arrow validity bitmap 越界。", "Arrow validity bitmap out of bounds.")) }
             return (data[position + index / 8] & UInt8(1 << (index % 8))) != 0
         }
         switch field.kind {
@@ -287,21 +287,21 @@ enum ColumnarPreview {
             let offsets = try nextBuffer(), values = try nextBuffer()
             let offsetsStart = try checkedBuffer(offsets, bodyStart: bodyStart, data: data)
             let valuesStart = try checkedBuffer(values, bodyStart: bodyStart, data: data)
-            guard offsets.length >= Int64((min(Int(node.length), rowCount) + 1) * 4) else { throw PreviewFailure.damagedData("Arrow 字符串偏移表过短。") }
+            guard offsets.length >= Int64((min(Int(node.length), rowCount) + 1) * 4) else { throw PreviewFailure.damagedData(L10n.text("Arrow 字符串偏移表过短。", "Arrow string offset table is too short.")) }
             var output:[String]=[]
             for index in 0..<rowCount {
                 if try !valid(index) { output.append("NULL"); continue }
                 let a=Int(try data.readInt32LE(at: offsetsStart+index*4)), b=Int(try data.readInt32LE(at: offsetsStart+(index+1)*4))
-                guard a>=0,b>=a,Int64(b)<=values.length else { throw PreviewFailure.damagedData("Arrow 字符串偏移越界。") }
+                guard a>=0,b>=a,Int64(b)<=values.length else { throw PreviewFailure.damagedData(L10n.text("Arrow 字符串偏移越界。", "Arrow string offset out of bounds.")) }
                 let bytes=Data(data[(valuesStart+a)..<(valuesStart+b)])
-                if case .utf8 = field.kind { output.append(String(data:bytes,encoding:.utf8) ?? "<无效 UTF-8>") }
+                if case .utf8 = field.kind { output.append(String(data:bytes,encoding:.utf8) ?? L10n.text("<无效 UTF-8>", "<invalid UTF-8>")) }
                 else { output.append(hexSummary(bytes)) }
             }
             return (output,false)
         case .bool:
             let values = try nextBuffer()
             let start = try checkedBuffer(values, bodyStart: bodyStart, data: data)
-            guard values.length >= Int64((rowCount + 7) / 8) else { throw PreviewFailure.damagedData("Arrow Boolean buffer 过短。") }
+            guard values.length >= Int64((rowCount + 7) / 8) else { throw PreviewFailure.damagedData(L10n.text("Arrow Boolean buffer 过短。", "Arrow Boolean buffer is too short.")) }
             var output: [String] = []
             output.reserveCapacity(rowCount)
             for index in 0..<rowCount {
@@ -316,7 +316,7 @@ enum ColumnarPreview {
             return (output, false)
         case .signed(let bits), .unsigned(let bits), .time(let bits):
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data), width=max(1,bits/8)
-            guard values.length >= Int64(rowCount*width) else { throw PreviewFailure.damagedData("Arrow 数值 buffer 过短。") }
+            guard values.length >= Int64(rowCount*width) else { throw PreviewFailure.damagedData(L10n.text("Arrow 数值 buffer 过短。", "Arrow numeric buffer is too short.")) }
             let signed:Bool; if case .unsigned = field.kind { signed=false } else { signed=true }
             return (try (0..<rowCount).map { i in
                 if try !valid(i) { return "NULL" }
@@ -324,28 +324,28 @@ enum ColumnarPreview {
             },false)
         case .float32:
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data)
-            guard values.length >= Int64(rowCount * 4) else { throw PreviewFailure.damagedData("Arrow Float32 buffer 过短。") }
+            guard values.length >= Int64(rowCount * 4) else { throw PreviewFailure.damagedData(L10n.text("Arrow Float32 buffer 过短。", "Arrow Float32 buffer is too short.")) }
             return (try (0..<rowCount).map { i in try valid(i) ? String(Float(bitPattern:try data.readUInt32LE(at:start+i*4))) : "NULL" },false)
         case .float64:
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data)
-            guard values.length >= Int64(rowCount * 8) else { throw PreviewFailure.damagedData("Arrow Float64 buffer 过短。") }
+            guard values.length >= Int64(rowCount * 8) else { throw PreviewFailure.damagedData(L10n.text("Arrow Float64 buffer 过短。", "Arrow Float64 buffer is too short.")) }
             return (try (0..<rowCount).map { i in try valid(i) ? String(Double(bitPattern:try data.readUInt64LE(at:start+i*8))) : "NULL" },false)
         case .date32:
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data)
-            guard values.length >= Int64(rowCount * 4) else { throw PreviewFailure.damagedData("Arrow Date32 buffer 过短。") }
+            guard values.length >= Int64(rowCount * 4) else { throw PreviewFailure.damagedData(L10n.text("Arrow Date32 buffer 过短。", "Arrow Date32 buffer is too short.")) }
             return (try (0..<rowCount).map { i in
                 if try !valid(i) { return "NULL" }; let days=try data.readInt32LE(at:start+i*4)
                 return ISO8601DateFormatter().string(from:Date(timeIntervalSince1970:TimeInterval(days)*86400))
             },false)
         case .date64, .timestamp:
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data)
-            guard values.length >= Int64(rowCount * 8) else { throw PreviewFailure.damagedData("Arrow 64-bit buffer 过短。") }
+            guard values.length >= Int64(rowCount * 8) else { throw PreviewFailure.damagedData(L10n.text("Arrow 64-bit buffer 过短。", "Arrow 64-bit buffer is too short.")) }
             return (try (0..<rowCount).map { i in
                 if try !valid(i) { return "NULL" }; return String(try data.readInt64LE(at:start+i*8))
             },false)
         case .fixedBinary(let width):
             let values=try nextBuffer(), start=try checkedBuffer(values,bodyStart:bodyStart,data:data)
-            guard width>0,values.length>=Int64(rowCount*width) else { throw PreviewFailure.damagedData("Arrow fixed binary buffer 无效。") }
+            guard width>0,values.length>=Int64(rowCount*width) else { throw PreviewFailure.damagedData(L10n.text("Arrow fixed binary buffer 无效。", "Invalid Arrow fixed binary buffer.")) }
             return (try (0..<rowCount).map { i in try valid(i) ? hexSummary(Data(data[(start+i*width)..<(start+(i+1)*width)])) : "NULL" },false)
         case .complex:
             for child in field.children { _ = try decodeArrowColumn(child,rowCount:rowCount,nodes:nodes,buffers:buffers,nodeIndex:&nodeIndex,bufferIndex:&bufferIndex,bodyStart:bodyStart,data:data) }
@@ -355,7 +355,7 @@ enum ColumnarPreview {
 
     private static func checkedBuffer(_ buffer: ArrowBufferInfo, bodyStart: Int, data: Data) throws -> Int {
         guard buffer.offset>=0,buffer.length>=0,buffer.offset<=Int64(data.count),buffer.length<=Int64(data.count),
-              Int64(bodyStart)+buffer.offset+buffer.length<=Int64(data.count) else { throw PreviewFailure.damagedData("Arrow buffer 越界。") }
+              Int64(bodyStart)+buffer.offset+buffer.length<=Int64(data.count) else { throw PreviewFailure.damagedData(L10n.text("Arrow buffer 越界。", "Arrow buffer out of bounds.")) }
         return bodyStart+Int(buffer.offset)
     }
 
@@ -371,13 +371,13 @@ enum ColumnarPreview {
 
     private static func loadAvro(_ url: URL, _ data: Data) throws -> PreviewSnapshot {
         var cursor = BinaryCursor(data)
-        guard try cursor.read(count:4) == Data([0x4f,0x62,0x6a,0x01]) else { throw PreviewFailure.damagedData("Avro OCF 文件标记无效。") }
+        guard try cursor.read(count:4) == Data([0x4f,0x62,0x6a,0x01]) else { throw PreviewFailure.damagedData(L10n.text("Avro OCF 文件标记无效。", "Invalid Avro OCF file marker.")) }
         let metadata = try cursor.readAvroMapBytes(limit:100)
         guard let schemaData=metadata["avro.schema"], let schemaObject=try? JSONSerialization.jsonObject(with:schemaData,options:[.fragmentsAllowed]) else {
-            throw PreviewFailure.damagedData("Avro schema 缺失或不是有效 JSON。")
+            throw PreviewFailure.damagedData(L10n.text("Avro schema 缺失或不是有效 JSON。", "Avro schema is missing or not valid JSON."))
         }
         let codec=metadata["avro.codec"].flatMap{String(data:$0,encoding:.utf8)} ?? "null"
-        guard ["null","deflate"].contains(codec) else { throw PreviewFailure.unsupportedData("Avro codec \(codec) 暂不支持；当前支持 null 和 deflate。") }
+        guard ["null","deflate"].contains(codec) else { throw PreviewFailure.unsupportedData(L10n.text("Avro codec \(codec) 暂不支持；当前支持 null 和 deflate。", "Avro codec \(codec) is not supported yet; null and deflate are available.")) }
         let sync=try cursor.read(count:16)
         let descriptor=try AvroSchemaDescriptor(schemaObject)
         var rows:[[String]]=[], total=0, truncated=false
@@ -385,10 +385,10 @@ enum ColumnarPreview {
             try Task.checkCancellation()
             let count=try cursor.readLong()
             if count==0 { continue }
-            guard count>0,count<=1_000_000_000 else { throw PreviewFailure.damagedData("Avro block 记录数异常。") }
-            let size=try cursor.readLong(); guard size>=0,size<=Int64(maximumFileBytes) else { throw PreviewFailure.damagedData("Avro block 大小异常。") }
-            let block=try cursor.read(count:Int(size)); guard try cursor.read(count:16)==sync else { throw PreviewFailure.damagedData("Avro block 同步标记不匹配。") }
-            guard total <= Int.max - Int(count) else { throw PreviewFailure.damagedData("Avro 总行数溢出。") }
+            guard count>0,count<=1_000_000_000 else { throw PreviewFailure.damagedData(L10n.text("Avro block 记录数异常。", "Unexpected Avro block record count.")) }
+            let size=try cursor.readLong(); guard size>=0,size<=Int64(maximumFileBytes) else { throw PreviewFailure.damagedData(L10n.text("Avro block 大小异常。", "Unexpected Avro block size.")) }
+            let block=try cursor.read(count:Int(size)); guard try cursor.read(count:16)==sync else { throw PreviewFailure.damagedData(L10n.text("Avro block 同步标记不匹配。", "Avro block sync marker mismatch.")) }
+            guard total <= Int.max - Int(count) else { throw PreviewFailure.damagedData(L10n.text("Avro 总行数溢出。", "Avro row count overflow.")) }
             total += Int(count)
             guard rows.count<maximumRows else { truncated=true; continue }
             let decoded = codec=="deflate" ? try inflateRaw(block, limit:maximumFileBytes) : block
@@ -400,10 +400,10 @@ enum ColumnarPreview {
             if Int(count)>maximumRows-rows.count { truncated=true }
         }
         let omitted=max(0,total-rows.count)
-        let keys=metadata.keys.sorted().filter{$0 != "avro.schema"}.map{"\($0)：\(String(data:metadata[$0]!,encoding:.utf8) ?? "<binary>")"}.joined(separator:"\n")
-        let body="Schema：\n\(String(data:schemaData,encoding:.utf8) ?? "")" + (keys.isEmpty ? "":"\n\n元信息：\n\(keys)")
+        let keys=metadata.keys.sorted().filter{$0 != "avro.schema"}.map{"\($0)" + L10n.text("：", ": ") + "\(String(data:metadata[$0]!,encoding:.utf8) ?? "<binary>")"}.joined(separator:"\n")
+        let body=L10n.text("Schema：", "Schema: ") + "\n\(String(data:schemaData,encoding:.utf8) ?? "")" + (keys.isEmpty ? "":L10n.text("\n\n元信息：\n\(keys)", "\n\nMetadata:\n\(keys)"))
         return PreviewSnapshot(title:url.lastPathComponent,
-            summary:"SpaceLens · Avro OCF · \(total) 行 · \(descriptor.columns.count) 列 · codec \(codec)",
+            summary:L10n.text("SpaceLens · Avro OCF · \(total) 行 · \(descriptor.columns.count) 列 · codec \(codec)", "SpaceLens · Avro OCF · \(total) rows · \(descriptor.columns.count) columns · codec \(codec)"),
             body:body,truncated:truncated || omitted>0,contentKind:.table,
             table:.init(columns:descriptor.columns,rows:rows,omittedRowCount:omitted))
     }
@@ -419,7 +419,7 @@ enum ColumnarPreview {
             if size>0 && size<capacity{return Data(output.prefix(size))}
             capacity*=2
         }
-        throw PreviewFailure.damagedData("Avro deflate 数据损坏或解压后超过 64 MiB。")
+        throw PreviewFailure.damagedData(L10n.text("Avro deflate 数据损坏或解压后超过 64 MiB。", "Avro deflate data is corrupt or expands beyond 64 MiB."))
     }
 
     private static func hexSummary(_ data:Data)->String { data.prefix(16).map{String(format:"%02X",$0)}.joined() + (data.count>16 ? "…":"") }
@@ -429,7 +429,7 @@ enum ColumnarPreview {
 
 private extension Data {
     func checked(_ at:Int,_ count:Int)throws {
-        guard at>=0,count>=0,at<=self.count-count else { throw PreviewFailure.damagedData("二进制字段超出文件范围。") }
+        guard at>=0,count>=0,at<=self.count-count else { throw PreviewFailure.damagedData(L10n.text("二进制字段超出文件范围。", "Binary field is outside the file.")) }
     }
     func readUInt16LE(at:Int)throws->UInt16 { try checked(at,2); return UInt16(self[at]) | UInt16(self[at+1])<<8 }
     func readUInt32LE(at:Int)throws->UInt32 { try checked(at,4); return UInt32(self[at]) | UInt32(self[at+1])<<8 | UInt32(self[at+2])<<16 | UInt32(self[at+3])<<24 }
@@ -448,15 +448,15 @@ private struct BinaryCursor {
     mutating func readLong()throws->Int64 {
         var raw:UInt64=0,shift:UInt64=0
         for _ in 0..<10 { let byte=try readByte(); raw |= UInt64(byte&0x7f)<<shift; if byte&0x80==0{return Int64(raw>>1) ^ -Int64(raw&1)}; shift+=7 }
-        throw PreviewFailure.damagedData("Avro 可变整数过长。")
+        throw PreviewFailure.damagedData(L10n.text("Avro 可变整数过长。", "Avro variable-length integer is too long."))
     }
-    mutating func readBytes()throws->Data { let n=try readLong(); guard n>=0,n<=Int64(data.count-index) else{throw PreviewFailure.damagedData("Avro 字节串长度无效。")}; return try read(count:Int(n)) }
-    mutating func readString()throws->String { let bytes=try readBytes(); guard let s=String(data:bytes,encoding:.utf8) else{throw PreviewFailure.damagedData("Avro 字符串不是 UTF-8。")}; return s }
+    mutating func readBytes()throws->Data { let n=try readLong(); guard n>=0,n<=Int64(data.count-index) else{throw PreviewFailure.damagedData(L10n.text("Avro 字节串长度无效。", "Invalid Avro byte string length."))}; return try read(count:Int(n)) }
+    mutating func readString()throws->String { let bytes=try readBytes(); guard let s=String(data:bytes,encoding:.utf8) else{throw PreviewFailure.damagedData(L10n.text("Avro 字符串不是 UTF-8。", "Avro string is not UTF-8."))}; return s }
     mutating func readAvroMapBytes(limit:Int)throws->[String:Data] {
         var result:[String:Data]=[:],count=try readLong(),seen=0
         while count != 0 {
             if count<0 {count = -count; _=try readLong()}
-            guard count<=Int64(limit-seen) else{throw PreviewFailure.damagedData("Avro 元信息条目过多。")}
+            guard count<=Int64(limit-seen) else{throw PreviewFailure.damagedData(L10n.text("Avro 元信息条目过多。", "Too many Avro metadata entries."))}
             for _ in 0..<count {result[try readString()]=try readBytes();seen+=1}
             count=try readLong()
         }
@@ -469,15 +469,15 @@ private struct AvroSchemaDescriptor {
     init(_ root:Any)throws {
         self.root=root; var names:[String:Any]=[:]; Self.collect(root,&names,depth:0); self.named=names
         if let d=root as? [String:Any],(d["type"] as? String)=="record",let fields=d["fields"] as? [[String:Any]] {columns=fields.compactMap{$0["name"] as? String}}
-        else {columns=["值"]}
+        else {columns=[L10n.text("值", "Value")]}
     }
     static func collect(_ schema:Any,_ names:inout[String:Any],depth:Int){guard depth<50 else{return}; if let d=schema as? [String:Any] {if let name=d["name"] as? String{names[name]=d}; if let fields=d["fields"] as? [[String:Any]]{for f in fields{if let t=f["type"]{collect(t,&names,depth:depth+1)}}}} else if let a=schema as? [Any]{for x in a{collect(x,&names,depth:depth+1)}}}
     func decode(_ c:inout BinaryCursor,depth:Int)throws->Any {
-        guard depth<50 else{throw PreviewFailure.damagedData("Avro schema 嵌套过深。")}
+        guard depth<50 else{throw PreviewFailure.damagedData(L10n.text("Avro schema 嵌套过深。", "Avro schema is nested too deeply."))}
         return try decodeSchema(root,&c,depth)
     }
     private func decodeSchema(_ schema:Any,_ c:inout BinaryCursor,_ depth:Int)throws->Any {
-        if let union=schema as? [Any] {let i=try c.readLong();guard i>=0,i<Int64(union.count)else{throw PreviewFailure.damagedData("Avro union 索引无效。")};return try decodeSchema(union[Int(i)],&c,depth+1)}
+        if let union=schema as? [Any] {let i=try c.readLong();guard i>=0,i<Int64(union.count)else{throw PreviewFailure.damagedData(L10n.text("Avro union 索引无效。", "Invalid Avro union index."))};return try decodeSchema(union[Int(i)],&c,depth+1)}
         if let name=schema as? String {
             switch name {
             case "null":return NSNull(); case "boolean":return try c.readByte() != 0
@@ -485,24 +485,24 @@ private struct AvroSchemaDescriptor {
             case "float":let b=try c.read(count:4);return Float(bitPattern:try b.readUInt32LE(at:0))
             case "double":let b=try c.read(count:8);return Double(bitPattern:try b.readUInt64LE(at:0))
             case "bytes":return try c.readBytes(); case "string":return try c.readString()
-            default: if let target=named[name]{return try decodeSchema(target,&c,depth+1)}; throw PreviewFailure.unsupportedData("Avro 命名类型 \(name) 无法解析。")
+            default: if let target=named[name]{return try decodeSchema(target,&c,depth+1)}; throw PreviewFailure.unsupportedData(L10n.text("Avro 命名类型 \(name) 无法解析。", "Cannot resolve the Avro named type \(name)."))
             }
         }
-        guard let d=schema as? [String:Any],let type=d["type"] else{throw PreviewFailure.damagedData("Avro schema 节点无效。")}
+        guard let d=schema as? [String:Any],let type=d["type"] else{throw PreviewFailure.damagedData(L10n.text("Avro schema 节点无效。", "Invalid Avro schema node."))}
         if !(type is String){return try decodeSchema(type,&c,depth+1)}
         switch type as! String {
         case "record":
-            guard let fields=d["fields"] as? [[String:Any]] else{throw PreviewFailure.damagedData("Avro record fields 缺失。")};var result:[String:Any]=[:]
-            for f in fields {guard let name=f["name"] as? String,let child=f["type"] else{throw PreviewFailure.damagedData("Avro field 无效。")};result[name]=try decodeSchema(child,&c,depth+1)};return result
-        case "enum":guard let symbols=d["symbols"] as? [String] else{throw PreviewFailure.damagedData("Avro enum 无效。")};let i=try c.readLong();guard i>=0,i<Int64(symbols.count)else{throw PreviewFailure.damagedData("Avro enum 索引无效。")};return symbols[Int(i)]
-        case "fixed":guard let n=d["size"] as? Int,n>=0,n<=1_000_000 else{throw PreviewFailure.damagedData("Avro fixed 大小无效。")};return try c.read(count:n)
-        case "array":guard let item=d["items"] else{throw PreviewFailure.damagedData("Avro array items 缺失。")};return try decodeArray(item,&c,depth)
-        case "map":guard let value=d["values"] else{throw PreviewFailure.damagedData("Avro map values 缺失。")};return try decodeMap(value,&c,depth)
+            guard let fields=d["fields"] as? [[String:Any]] else{throw PreviewFailure.damagedData(L10n.text("Avro record fields 缺失。", "Missing Avro record fields."))};var result:[String:Any]=[:]
+            for f in fields {guard let name=f["name"] as? String,let child=f["type"] else{throw PreviewFailure.damagedData(L10n.text("Avro field 无效。", "Invalid Avro field."))};result[name]=try decodeSchema(child,&c,depth+1)};return result
+        case "enum":guard let symbols=d["symbols"] as? [String] else{throw PreviewFailure.damagedData(L10n.text("Avro enum 无效。", "Invalid Avro enum."))};let i=try c.readLong();guard i>=0,i<Int64(symbols.count)else{throw PreviewFailure.damagedData(L10n.text("Avro enum 索引无效。", "Invalid Avro enum index."))};return symbols[Int(i)]
+        case "fixed":guard let n=d["size"] as? Int,n>=0,n<=1_000_000 else{throw PreviewFailure.damagedData(L10n.text("Avro fixed 大小无效。", "Invalid Avro fixed size."))};return try c.read(count:n)
+        case "array":guard let item=d["items"] else{throw PreviewFailure.damagedData(L10n.text("Avro array items 缺失。", "Missing Avro array items."))};return try decodeArray(item,&c,depth)
+        case "map":guard let value=d["values"] else{throw PreviewFailure.damagedData(L10n.text("Avro map values 缺失。", "Missing Avro map values."))};return try decodeMap(value,&c,depth)
         default:return try decodeSchema(type,&c,depth+1)
         }
     }
-    private func decodeArray(_ schema:Any,_ c:inout BinaryCursor,_ depth:Int)throws->[Any]{var out:[Any]=[],count=try c.readLong();while count != 0{if count<0{count = -count;_=try c.readLong()};guard count<=10_000-Int64(out.count)else{throw PreviewFailure.unsupportedData("Avro 数组超过 10,000 项限制。")};for _ in 0..<count{out.append(try decodeSchema(schema,&c,depth+1))};count=try c.readLong()};return out}
-    private func decodeMap(_ schema:Any,_ c:inout BinaryCursor,_ depth:Int)throws->[String:Any]{var out:[String:Any]=[:],count=try c.readLong();while count != 0{if count<0{count = -count;_=try c.readLong()};guard count<=10_000-Int64(out.count)else{throw PreviewFailure.unsupportedData("Avro map 超过 10,000 项限制。")};for _ in 0..<count{out[try c.readString()]=try decodeSchema(schema,&c,depth+1)};count=try c.readLong()};return out}
+    private func decodeArray(_ schema:Any,_ c:inout BinaryCursor,_ depth:Int)throws->[Any]{var out:[Any]=[],count=try c.readLong();while count != 0{if count<0{count = -count;_=try c.readLong()};guard count<=10_000-Int64(out.count)else{throw PreviewFailure.unsupportedData(L10n.text("Avro 数组超过 10,000 项限制。", "Avro array exceeds the 10,000 item limit."))};for _ in 0..<count{out.append(try decodeSchema(schema,&c,depth+1))};count=try c.readLong()};return out}
+    private func decodeMap(_ schema:Any,_ c:inout BinaryCursor,_ depth:Int)throws->[String:Any]{var out:[String:Any]=[:],count=try c.readLong();while count != 0{if count<0{count = -count;_=try c.readLong()};guard count<=10_000-Int64(out.count)else{throw PreviewFailure.unsupportedData(L10n.text("Avro map 超过 10,000 项限制。", "Avro map exceeds the 10,000 entry limit."))};for _ in 0..<count{out[try c.readString()]=try decodeSchema(schema,&c,depth+1)};count=try c.readLong()};return out}
     func row(_ value:Any)->[String]{if let d=value as? [String:Any]{return columns.map{Self.display(d[$0] ?? NSNull())}};return[Self.display(value)]}
     static func display(_ value:Any)->String{if value is NSNull{return"NULL"};if let d=value as? Data{return d.prefix(16).map{String(format:"%02X",$0)}.joined()+(d.count>16 ? "…":"")};if let a=value as? [Any]{return "["+a.prefix(20).map(display).joined(separator:", ")+(a.count>20 ? ", …]":"]")};if let d=value as? [String:Any]{return "{"+d.keys.sorted().prefix(20).map{"\($0): \(display(d[$0]!))"}.joined(separator:", ")+(d.count>20 ? ", …}":"}")};return String(describing:value)}
 }
@@ -519,26 +519,26 @@ private struct CompactCursor {
     let data:Data;var index=0
     init(_ data:Data){self.data=data}
     mutating func byte()throws->UInt8{try data.checked(index,1);defer{index+=1};return data[index]}
-    mutating func varint()throws->UInt64{var x:UInt64=0,s:UInt64=0;for _ in 0..<10{let b=try byte();x|=UInt64(b&0x7f)<<s;if b&0x80==0{return x};s+=7};throw PreviewFailure.damagedData("Parquet Thrift varint 过长。")}
+    mutating func varint()throws->UInt64{var x:UInt64=0,s:UInt64=0;for _ in 0..<10{let b=try byte();x|=UInt64(b&0x7f)<<s;if b&0x80==0{return x};s+=7};throw PreviewFailure.damagedData(L10n.text("Parquet Thrift varint 过长。", "Parquet Thrift varint is too long."))}
     mutating func zigzag()throws->Int64{let n=try varint();return Int64(n>>1) ^ -Int64(n&1)}
-    mutating func readStruct(depth:Int,budget:inout Int)throws->[Int:CompactValue]{guard depth<64 else{throw PreviewFailure.damagedData("Parquet 元数据嵌套过深。")};var fields:[Int:CompactValue]=[:],last=0
+    mutating func readStruct(depth:Int,budget:inout Int)throws->[Int:CompactValue]{guard depth<64 else{throw PreviewFailure.damagedData(L10n.text("Parquet 元数据嵌套过深。", "Parquet metadata is nested too deeply."))};var fields:[Int:CompactValue]=[:],last=0
         while true{let h=try byte();let type=Int(h&0x0f);if type==0{return fields};let delta=Int(h>>4);let id:Int;if delta==0{id=Int(try zigzag())}else{id=last+delta};last=id;fields[id]=try readValue(type,depth:depth+1,budget:&budget)} }
-    mutating func readValue(_ type:Int,depth:Int,budget:inout Int)throws->CompactValue{budget-=1;guard budget>=0 else{throw PreviewFailure.damagedData("Parquet 元数据节点过多。")};switch type{case 1:return .bool(true);case 2:return .bool(false);case 3:return .int(Int64(Int8(bitPattern:try byte())));case 4,5,6:return .int(try zigzag());case 7:let d=try take(8);return .double(Double(bitPattern:try d.readUInt64LE(at:0)));case 8:let n=Int(try varint());guard n<=data.count-index else{throw PreviewFailure.damagedData("Parquet 二进制长度无效。")};return .binary(try take(n));case 9,10:let h=try byte();var n=Int(h>>4);let element=Int(h&0x0f);if n==15{n=Int(try varint())};guard n<=100_000 else{throw PreviewFailure.damagedData("Parquet list 过大。")};return .list(try(0..<n).map{_ in try readValue(element,depth:depth+1,budget:&budget)});case 11:let n=Int(try varint());if n==0{return .map([])};guard n<=100_000 else{throw PreviewFailure.damagedData("Parquet map 过大。")};let h=try byte(),k=Int(h>>4),v=Int(h&0x0f);return .map(try(0..<n).map{_ in(try readValue(k,depth:depth+1,budget:&budget),try readValue(v,depth:depth+1,budget:&budget))});case 12:return .structure(try readStruct(depth:depth+1,budget:&budget));default:throw PreviewFailure.damagedData("Parquet Thrift 类型 \(type) 无效。")}}
+    mutating func readValue(_ type:Int,depth:Int,budget:inout Int)throws->CompactValue{budget-=1;guard budget>=0 else{throw PreviewFailure.damagedData(L10n.text("Parquet 元数据节点过多。", "Too many Parquet metadata nodes."))};switch type{case 1:return .bool(true);case 2:return .bool(false);case 3:return .int(Int64(Int8(bitPattern:try byte())));case 4,5,6:return .int(try zigzag());case 7:let d=try take(8);return .double(Double(bitPattern:try d.readUInt64LE(at:0)));case 8:let n=Int(try varint());guard n<=data.count-index else{throw PreviewFailure.damagedData(L10n.text("Parquet 二进制长度无效。", "Invalid Parquet binary length."))};return .binary(try take(n));case 9,10:let h=try byte();var n=Int(h>>4);let element=Int(h&0x0f);if n==15{n=Int(try varint())};guard n<=100_000 else{throw PreviewFailure.damagedData(L10n.text("Parquet list 过大。", "Parquet list is too large."))};return .list(try(0..<n).map{_ in try readValue(element,depth:depth+1,budget:&budget)});case 11:let n=Int(try varint());if n==0{return .map([])};guard n<=100_000 else{throw PreviewFailure.damagedData(L10n.text("Parquet map 过大。", "Parquet map is too large."))};let h=try byte(),k=Int(h>>4),v=Int(h&0x0f);return .map(try(0..<n).map{_ in(try readValue(k,depth:depth+1,budget:&budget),try readValue(v,depth:depth+1,budget:&budget))});case 12:return .structure(try readStruct(depth:depth+1,budget:&budget));default:throw PreviewFailure.damagedData(L10n.text("Parquet Thrift 类型 \(type) 无效。", "Invalid Parquet Thrift type \(type)."))}}
     mutating func take(_ n:Int)throws->Data{try data.checked(index,n);defer{index+=n};return Data(data[index..<index+n])}
 }
 
 private struct FBTable {
     let data:Data;let position:Int
-    static func root(in data:Data)throws->FBTable{guard data.count>=4 else{throw PreviewFailure.damagedData("FlatBuffer 过短。")};let p=Int(try data.readUInt32LE(at:0));guard p>=4,p<data.count else{throw PreviewFailure.damagedData("FlatBuffer root 越界。")};return .init(data:data,position:p)}
-    func fieldPosition(_ field:Int)throws->Int?{let back=Int(try data.readInt32LE(at:position));let vt=position-back;guard back != 0, vt >= 0, vt + 4 <= data.count else { throw PreviewFailure.damagedData("FlatBuffer vtable 无效。") };let length=Int(try data.readUInt16LE(at:vt));let entry=vt+4+field*2;if entry+2>vt+length{return nil};let offset=Int(try data.readUInt16LE(at:entry));if offset==0{return nil};let p=position+offset;try data.checked(p,1);return p}
-    func indirectTable(field:Int)throws->FBTable?{guard let p=try fieldPosition(field)else{return nil};let target=p+Int(try data.readUInt32LE(at:p));guard target<data.count else{throw PreviewFailure.damagedData("FlatBuffer table 越界。")};return .init(data:data,position:target)}
+    static func root(in data:Data)throws->FBTable{guard data.count>=4 else{throw PreviewFailure.damagedData(L10n.text("FlatBuffer 过短。", "FlatBuffer is too short."))};let p=Int(try data.readUInt32LE(at:0));guard p>=4,p<data.count else{throw PreviewFailure.damagedData(L10n.text("FlatBuffer root 越界。", "FlatBuffer root out of bounds."))};return .init(data:data,position:p)}
+    func fieldPosition(_ field:Int)throws->Int?{let back=Int(try data.readInt32LE(at:position));let vt=position-back;guard back != 0, vt >= 0, vt + 4 <= data.count else { throw PreviewFailure.damagedData(L10n.text("FlatBuffer vtable 无效。", "Invalid FlatBuffer vtable.")) };let length=Int(try data.readUInt16LE(at:vt));let entry=vt+4+field*2;if entry+2>vt+length{return nil};let offset=Int(try data.readUInt16LE(at:entry));if offset==0{return nil};let p=position+offset;try data.checked(p,1);return p}
+    func indirectTable(field:Int)throws->FBTable?{guard let p=try fieldPosition(field)else{return nil};let target=p+Int(try data.readUInt32LE(at:p));guard target<data.count else{throw PreviewFailure.damagedData(L10n.text("FlatBuffer table 越界。", "FlatBuffer table out of bounds."))};return .init(data:data,position:target)}
     func uint8(field:Int,default d:UInt8)throws->UInt8{guard let p=try fieldPosition(field)else{return d};return data[p]}
     func bool(field:Int,default d:Bool)throws->Bool{try uint8(field:field,default:d ? 1:0) != 0}
     func int16(field:Int,default d:Int16)throws->Int16{guard let p=try fieldPosition(field)else{return d};return try data.readInt16LE(at:p)}
     func int32(field:Int,default d:Int32)throws->Int32{guard let p=try fieldPosition(field)else{return d};return try data.readInt32LE(at:p)}
     func int64(field:Int,default d:Int64)throws->Int64{guard let p=try fieldPosition(field)else{return d};return try data.readInt64LE(at:p)}
-    func string(field:Int)throws->String?{guard let p=try fieldPosition(field)else{return nil};let start=p+Int(try data.readUInt32LE(at:p));let n=Int(try data.readUInt32LE(at:start));try data.checked(start+4,n);guard let s=String(data:data[(start+4)..<(start+4+n)],encoding:.utf8)else{throw PreviewFailure.damagedData("FlatBuffer 字符串不是 UTF-8。")};return s}
-    func vector(field:Int,stride:Int)throws->[Int]{guard let p=try fieldPosition(field)else{return[]};let start=p+Int(try data.readUInt32LE(at:p));let n=Int(try data.readUInt32LE(at:start));guard n>=0,n<=100_000 else{throw PreviewFailure.damagedData("FlatBuffer vector 数量异常。")};try data.checked(start+4,n*stride);return(0..<n).map{start+4+$0*stride}}
+    func string(field:Int)throws->String?{guard let p=try fieldPosition(field)else{return nil};let start=p+Int(try data.readUInt32LE(at:p));let n=Int(try data.readUInt32LE(at:start));try data.checked(start+4,n);guard let s=String(data:data[(start+4)..<(start+4+n)],encoding:.utf8)else{throw PreviewFailure.damagedData(L10n.text("FlatBuffer 字符串不是 UTF-8。", "FlatBuffer string is not UTF-8."))};return s}
+    func vector(field:Int,stride:Int)throws->[Int]{guard let p=try fieldPosition(field)else{return[]};let start=p+Int(try data.readUInt32LE(at:p));let n=Int(try data.readUInt32LE(at:start));guard n>=0,n<=100_000 else{throw PreviewFailure.damagedData(L10n.text("FlatBuffer vector 数量异常。", "Unexpected FlatBuffer vector count."))};try data.checked(start+4,n*stride);return(0..<n).map{start+4+$0*stride}}
     func structVector(field:Int,stride:Int)throws->[Int]{try vector(field:field,stride:stride)}
-    func tableVector(field:Int)throws->[FBTable]{try vector(field:field,stride:4).map{p in let target=p+Int(try data.readUInt32LE(at:p));guard target<data.count else{throw PreviewFailure.damagedData("FlatBuffer vector table 越界。")};return FBTable(data:data,position:target)}}
+    func tableVector(field:Int)throws->[FBTable]{try vector(field:field,stride:4).map{p in let target=p+Int(try data.readUInt32LE(at:p));guard target<data.count else{throw PreviewFailure.damagedData(L10n.text("FlatBuffer vector table 越界。", "FlatBuffer vector table out of bounds."))};return FBTable(data:data,position:target)}}
 }

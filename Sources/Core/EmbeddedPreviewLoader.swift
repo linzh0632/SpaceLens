@@ -34,7 +34,7 @@ public enum EmbeddedPreviewLoader {
     private static func loadDirectoryChild(root: URL, relativePath: String) throws -> PreviewSnapshot {
         let components = relativePath.split(separator: "/", omittingEmptySubsequences: true)
         guard !components.isEmpty, !components.contains("..") else {
-            throw PreviewFailure.unsupportedData("条目路径不安全，已拒绝预览。")
+            throw PreviewFailure.unsupportedData(L10n.text("条目路径不安全，已拒绝预览。", "The entry path is unsafe, so the preview was refused."))
         }
         // Built from the raw path rather than `appendingPathComponent` so file names containing
         // "%" or "#" are not percent-encoded twice.
@@ -43,7 +43,7 @@ public enum EmbeddedPreviewLoader {
             child = URL(fileURLWithPath: child.path + "/" + String(component))
             let componentValues = try child.resourceValues(forKeys: [.isSymbolicLinkKey])
             guard componentValues.isSymbolicLink != true else {
-                throw PreviewFailure.unsupportedData("链接不会被读取，已拒绝预览。")
+                throw PreviewFailure.unsupportedData(L10n.text("链接不会被读取，已拒绝预览。", "Links are not followed, so the preview was refused."))
             }
         }
         // Resolve every component again before checking containment to defend against a path being
@@ -51,14 +51,14 @@ public enum EmbeddedPreviewLoader {
         let resolvedRoot = root.standardizedFileURL.resolvingSymlinksInPath()
         let resolvedChild = child.standardizedFileURL.resolvingSymlinksInPath()
         guard resolvedChild.path.hasPrefix(resolvedRoot.path + "/") else {
-            throw PreviewFailure.unsupportedData("条目路径超出容器范围，已拒绝预览。")
+            throw PreviewFailure.unsupportedData(L10n.text("条目路径超出容器范围，已拒绝预览。", "The entry path escapes the container, so the preview was refused."))
         }
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
                                         .isDirectoryKey, .isPackageKey]
         let values = try resolvedChild.resourceValues(forKeys: keys)
         guard values.isRegularFile == true else {
             throw PreviewFailure.unsupportedData(
-                values.isDirectory == true ? "这是一个文件夹，请展开它而不是预览内容。" : "这不是一个普通文件。")
+                values.isDirectory == true ? L10n.text("这是一个文件夹，请展开它而不是预览内容。", "This is a folder; expand it instead of previewing its content.") : L10n.text("这不是一个普通文件。", "This is not a regular file."))
         }
         return try PreviewLoader.load(resolvedChild)
     }
@@ -67,7 +67,7 @@ public enum EmbeddedPreviewLoader {
 
     private static func loadArchiveEntry(archive: URL, path: String) throws -> PreviewSnapshot {
         guard !path.isEmpty, !path.hasSuffix("/") else {
-            throw PreviewFailure.unsupportedData("归档内目录没有可直接预览的内容。")
+            throw PreviewFailure.unsupportedData(L10n.text("归档内目录没有可直接预览的内容。", "A directory inside an archive has no content to preview directly."))
         }
         let name = (path as NSString).lastPathComponent
         let ext = (name as NSString).pathExtension.lowercased()
@@ -75,14 +75,14 @@ public enum EmbeddedPreviewLoader {
         // Refuse the types that would need a temporary file, before doing any extraction work.
         if !ext.isEmpty, ColumnarPreview.extensions.contains(ext) {
             throw PreviewFailure.unsupportedData(
-                "归档内的 \(ext.uppercased()) 需要文件路径，SpaceLens 不会为了预览而写入磁盘。")
+                L10n.text("归档内的 \(ext.uppercased()) 需要文件路径，SpaceLens 不会为了预览而写入磁盘。", "A \(ext.uppercased()) inside an archive needs a file path, and SpaceLens never writes to disk just to preview."))
         }
         if ext == "db" || ext == "sqlite" || ext == "sqlite3" {
             throw PreviewFailure.unsupportedData(
-                "归档内的 SQLite 数据库需要文件路径，SpaceLens 不会为了预览而写入磁盘。")
+                L10n.text("归档内的 SQLite 数据库需要文件路径，SpaceLens 不会为了预览而写入磁盘。", "A SQLite database inside an archive needs a file path, and SpaceLens never writes to disk just to preview."))
         }
         if ext == "zip" || ArchivePreview.extensions.contains(ext) {
-            throw PreviewFailure.unsupportedData("归档内嵌套的压缩包暂不支持预览。")
+            throw PreviewFailure.unsupportedData(L10n.text("归档内嵌套的压缩包暂不支持预览。", "Nested archives inside an archive cannot be previewed yet."))
         }
 
         let (data, truncated) = try ArchiveEntryReader.read(archive: archive, path: path,
@@ -91,7 +91,7 @@ public enum EmbeddedPreviewLoader {
         if ImagePreview.extensions.contains(ext) {
             guard !truncated else {
                 throw PreviewFailure.unsupportedData(
-                    "归档内的图片超过 \(formatBytes(Int64(maximumEntryBytes))) 的安全读取上限。")
+                    L10n.text("归档内的图片超过 \(formatBytes(Int64(maximumEntryBytes))) 的安全读取上限。", "The image inside the archive exceeds the \(formatBytes(Int64(maximumEntryBytes))) safe read limit."))
             }
             return try ImagePreview.load(data: data, name: name)
         }
@@ -100,7 +100,8 @@ public enum EmbeddedPreviewLoader {
         }
         guard CommonTextPreview.supports(name: name, ext: ext) else {
             throw PreviewFailure.unsupportedData(
-                "归档内暂不支持预览这种文件\(ext.isEmpty ? "" : "（.\(ext)）")。")
+                L10n.text("归档内暂不支持预览这种文件\(ext.isEmpty ? "" : "（.\(ext)）")。",
+                          "This kind of file cannot be previewed inside an archive\(ext.isEmpty ? "" : " (.\(ext))")."))
         }
         return try CommonTextPreview.load(data: data, truncated: truncated,
                                           byteLimit: maximumEntryBytes, name: name, ext: ext)
@@ -115,15 +116,15 @@ private enum ArchiveEntryReader {
 
     static func read(archive url: URL, path: String, limit: Int) throws -> (Data, Bool) {
         guard let archive = reader_new() else {
-            throw PreviewFailure.damagedArchive("无法初始化归档读取器")
+            throw PreviewFailure.damagedArchive(L10n.text("无法初始化归档读取器", "Cannot initialize the archive reader"))
         }
         defer { _ = reader_free(archive) }
         guard reader_support_filter_all(archive) >= archiveWarn,
               reader_support_format_all(archive) >= archiveWarn else {
-            throw PreviewFailure.unsupportedArchive("系统归档库无法启用所需格式")
+            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用所需格式", "The system archive library cannot enable the required formats"))
         }
         if url.pathExtension.lowercased() != "tar", reader_support_format_raw(archive) < archiveWarn {
-            throw PreviewFailure.unsupportedArchive("系统归档库无法启用独立压缩流")
+            throw PreviewFailure.unsupportedArchive(L10n.text("系统归档库无法启用独立压缩流", "The system archive library cannot enable standalone compression streams"))
         }
         guard url.path.withCString({ reader_open(archive, $0, 64 * 1024) }) == archiveOK else {
             throw failure(archive)
@@ -134,12 +135,12 @@ private enum ArchiveEntryReader {
         while true {
             try Task.checkCancellation()
             if Date() > deadline {
-                throw PreviewFailure.unsupportedArchive("在归档中查找条目超时（已扫描 \(scanned) 项）。")
+                throw PreviewFailure.unsupportedArchive(L10n.text("在归档中查找条目超时（已扫描 \(scanned) 项）。", "Timed out looking for the entry in the archive (scanned \(scanned) items)."))
             }
             var entry: OpaquePointer?
             let status = reader_next_header(archive, &entry)
             if status == archiveEOF {
-                throw PreviewFailure.unsupportedArchive("归档中找不到条目「\(path)」。")
+                throw PreviewFailure.unsupportedArchive(L10n.text("归档中找不到条目「\(path)」。", "Entry “\(path)” was not found in the archive."))
             }
             guard status >= archiveWarn, let entry else { throw failure(archive) }
             scanned += 1
@@ -152,7 +153,7 @@ private enum ArchiveEntryReader {
                 continue
             }
             if reader_entry_encrypted(entry) == 1 {
-                throw PreviewFailure.unsupportedArchive("条目「\(path)」已加密，无法预览内容。")
+                throw PreviewFailure.unsupportedArchive(L10n.text("条目「\(path)」已加密，无法预览内容。", "Entry “\(path)” is encrypted; its content cannot be previewed."))
             }
             return try drain(archive, limit: limit, deadline: deadline)
         }
@@ -179,7 +180,7 @@ private enum ArchiveEntryReader {
     }
 
     private static func failure(_ archive: OpaquePointer?) -> PreviewFailure {
-        let detail = reader_error(archive).map(String.init(cString:)) ?? "无法读取归档"
+        let detail = reader_error(archive).map(String.init(cString:)) ?? L10n.text("无法读取归档", "Cannot read the archive")
         return .damagedArchive(detail)
     }
 }

@@ -35,10 +35,10 @@ private final class MenuBarController: NSObject {
         }
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "打开 SpaceLens", action: #selector(openSpaceLens), keyEquivalent: "")
-        menu.addItem(withTitle: "打开 Quick Look 设置", action: #selector(openSystemSettings), keyEquivalent: "")
+        menu.addItem(withTitle: L10n.text("打开 SpaceLens", "Open SpaceLens"), action: #selector(openSpaceLens), keyEquivalent: "")
+        menu.addItem(withTitle: L10n.text("打开 Quick Look 设置", "Open Quick Look Settings"), action: #selector(openSystemSettings), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 SpaceLens", action: #selector(quitSpaceLens), keyEquivalent: "q")
+        menu.addItem(withTitle: L10n.text("退出 SpaceLens", "Quit SpaceLens"), action: #selector(quitSpaceLens), keyEquivalent: "q")
         for menuItem in menu.items { menuItem.target = self }
         item.menu = menu
         statusItem = item
@@ -125,6 +125,15 @@ private enum PreviewExtensionElection {
             return .unavailable
         }
         return enabled ? .enabled : .disabled
+    }
+
+    /// Quick Look keeps the extension process alive, and its cached preferences would keep serving
+    /// the previous language. Ending the process makes the next preview start with the new one.
+    static func restartExtensionProcess() {
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+        guard !running.isEmpty else { return }
+        for application in running { application.terminate() }
+        logger.notice("Ended \(running.count) preview extension process(es) after a settings change")
     }
 
     /// Disables the extension so that quitting the app also stops previews. If it is already
@@ -219,7 +228,7 @@ private final class UpdateCenter: ObservableObject {
 
     var versionText: String {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return "\(currentVersion)（\(build)）"
+        return L10n.text("\(currentVersion)（\(build)）", "\(currentVersion) (\(build))")
     }
 
     func check() async {
@@ -297,18 +306,18 @@ private enum SpaceLensExtensionAlert {
         case .enabled:
             return
         case .disabled:
-            alert.messageText = "SpaceLens 预览扩展当前已停用"
-            alert.informativeText = "空格预览会使用 macOS 原生预览。若要让 SpaceLens 接管支持的文件类型，请在“系统设置 → 通用 → 登录项与扩展 → Quick Look”中启用它。"
+            alert.messageText = L10n.text("SpaceLens 预览扩展当前已停用", "The SpaceLens preview extension is currently disabled")
+            alert.informativeText = L10n.text("空格预览会使用 macOS 原生预览。若要让 SpaceLens 接管支持的文件类型，请在“系统设置 → 通用 → 登录项与扩展 → Quick Look”中启用它。", "Space previews will use the native macOS preview. To let SpaceLens handle the file types it supports, enable it in System Settings → General → Login Items & Extensions → Quick Look.")
         case .notEmbedded:
-            alert.messageText = "未找到 SpaceLens 预览扩展"
-            alert.informativeText = "当前应用包内缺少 SpaceLensPreview.appex，请重新安装 SpaceLens。"
+            alert.messageText = L10n.text("未找到 SpaceLens 预览扩展", "SpaceLens preview extension not found")
+            alert.informativeText = L10n.text("当前应用包内缺少 SpaceLensPreview.appex，请重新安装 SpaceLens。", "This app bundle is missing SpaceLensPreview.appex. Please reinstall SpaceLens.")
         case .unavailable:
-            alert.messageText = "无法确认预览扩展状态"
-            alert.informativeText = "SpaceLens 未能读取 Quick Look 扩展的启用状态，预览可能不会生效。可以尝试重新安装应用或重新登录。"
+            alert.messageText = L10n.text("无法确认预览扩展状态", "Cannot confirm the preview extension status")
+            alert.informativeText = L10n.text("SpaceLens 未能读取 Quick Look 扩展的启用状态，预览可能不会生效。可以尝试重新安装应用或重新登录。", "SpaceLens could not read the Quick Look extension status, so previews may not work. Try reinstalling the app or signing in again.")
         }
         let showsApp = status == .notEmbedded
-        alert.addButton(withTitle: showsApp ? "在 Finder 中显示应用" : "打开系统设置")
-        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: showsApp ? L10n.text("在 Finder 中显示应用", "Show App in Finder") : L10n.text("打开系统设置", "Open System Settings"))
+        alert.addButton(withTitle: L10n.text("好", "OK"))
         // Present after the settings window has appeared, so the alert is not the only thing on screen.
         DispatchQueue.main.async {
             appLogger.notice("Showing preview extension warning for status \(String(describing: status), privacy: .public)")
@@ -354,7 +363,7 @@ struct SpaceLensApp: App {
     @NSApplicationDelegateAdaptor(SpaceLensAppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup("SpaceLens 设置") {
+        WindowGroup(L10n.text("SpaceLens 设置", "SpaceLens Settings")) {
             SpaceLensSettingsView()
         }
         .windowStyle(.hiddenTitleBar)
@@ -373,9 +382,9 @@ private enum SettingsPage: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .features: return "功能设置"
-        case .general: return "通用设置"
-        case .about: return "关于"
+        case .features: return L10n.text("功能设置", "Features")
+        case .general: return L10n.text("通用设置", "General")
+        case .about: return L10n.text("关于", "About")
         }
     }
 
@@ -392,6 +401,7 @@ private struct SpaceLensSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(SpaceLensPreference.showMenuBarIcon) private var showMenuBarIcon = false
     @AppStorage(SpaceLensPreference.checkForUpdatesAutomatically) private var checkForUpdates = false
+    @AppStorage(L10n.languageKey) private var languageSetting = SpaceLensLanguage.system.rawValue
     @State private var page: SettingsPage? = .features
     @State private var extensionStatus: PreviewExtensionElection.Status?
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
@@ -427,6 +437,9 @@ private struct SpaceLensSettingsView: View {
         }
         .onChange(of: showMenuBarIcon) { enabled in
             MenuBarController.shared.setEnabled(enabled)
+        }
+        .onChange(of: languageSetting) { _ in
+            PreviewExtensionElection.restartExtensionProcess()
         }
         .task {
             extensionStatus = await PreviewExtensionElection.currentState()
@@ -495,40 +508,40 @@ private struct SpaceLensSettingsView: View {
 
     private var featuresPage: some View {
         VStack(alignment: .leading, spacing: 24) {
-            section("预览扩展") {
+            section(L10n.text("预览扩展", "Preview extension")) {
                 card {
-                    settingRow("状态") {
+                    settingRow(L10n.text("状态", "Status")) {
                         Label(extensionStatusText, systemImage: extensionStatusSymbol)
                             .foregroundColor(extensionStatusColor)
                     }
                     divider
-                    settingRow("重新检查") {
-                        Button("重新检查") {
+                    settingRow(L10n.text("重新检查", "Check Again")) {
+                        Button(L10n.text("重新检查", "Check Again")) {
                             Task { extensionStatus = await PreviewExtensionElection.currentState() }
                         }
                     }
                     divider
-                    settingRow("系统设置") {
-                        Button("打开系统设置", action: SpaceLensActions.openSystemSettings)
+                    settingRow(L10n.text("系统设置", "System Settings")) {
+                        Button(L10n.text("打开系统设置", "Open System Settings"), action: SpaceLensActions.openSystemSettings)
                     }
                 }
-                helper("SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，重新打开 SpaceLens 后自动恢复。如果你在系统设置中手动停用了扩展，SpaceLens 不会覆盖这个选择。")
+                helper(L10n.text("SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，重新打开 SpaceLens 后自动恢复。如果你在系统设置中手动停用了扩展，SpaceLens 不会覆盖这个选择。", "SpaceLens only provides previews while it runs: quitting the app disables the preview extension, and reopening SpaceLens enables it again. A manual choice made in System Settings is never overridden."))
             }
-            section("预览范围") {
+            section(L10n.text("预览范围", "Preview scope")) {
                 card {
-                    settingRow("文件与归档") {
-                        value("文件夹、ZIP、TAR、GZ、BZ2、XZ")
+                    settingRow(L10n.text("文件与归档", "Files and archives")) {
+                        value(L10n.text("文件夹、ZIP、TAR、GZ、BZ2、XZ", "Folders, ZIP, TAR, GZ, BZ2, XZ"))
                     }
                     divider
-                    settingRow("文本与文档") {
-                        value("代码、配置、Markdown、Notebook、TeX")
+                    settingRow(L10n.text("文本与文档", "Text and documents")) {
+                        value(L10n.text("代码、配置、Markdown、Notebook、TeX", "Code, config, Markdown, notebooks, TeX"))
                     }
                     divider
-                    settingRow("数据与图表") {
-                        value("JSON、plist、SQLite、Parquet、Arrow、Avro、图表")
+                    settingRow(L10n.text("数据与图表", "Data and diagrams")) {
+                        value(L10n.text("JSON、plist、SQLite、Parquet、Arrow、Avro、图表", "JSON, plist, SQLite, Parquet, Arrow, Avro, diagrams"))
                     }
                 }
-                helper("图片、PDF、音视频等格式继续使用 macOS 原生预览，SpaceLens 不会成为这些文件的双击打开应用。归档内的 SQLite 与列式数据不在右侧窗格预览，以免写入磁盘。")
+                helper(L10n.text("图片、PDF、音视频等格式继续使用 macOS 原生预览，SpaceLens 不会成为这些文件的双击打开应用。归档内的 SQLite 与列式数据不在右侧窗格预览，以免写入磁盘。", "Images, PDFs, audio and video keep using the native macOS preview, and SpaceLens never becomes the default opener for them. SQLite and columnar data inside archives are not previewed in the detail pane, so nothing is written to disk."))
             }
         }
     }
@@ -537,37 +550,52 @@ private struct SpaceLensSettingsView: View {
 
     private var generalPage: some View {
         VStack(alignment: .leading, spacing: 24) {
-            section("外观") {
+            section(L10n.text("语言", "Language")) {
                 card {
-                    settingRow("在菜单栏显示") {
+                    settingRow(L10n.text("语言", "Language")) {
+                        Picker("", selection: $languageSetting) {
+                            Text(L10n.text("跟随系统", "Follow System")).tag(SpaceLensLanguage.system.rawValue)
+                            Text("简体中文").tag(SpaceLensLanguage.chinese.rawValue)
+                            Text("English").tag(SpaceLensLanguage.english.rawValue)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 150)
+                    }
+                }
+                helper(L10n.text("界面会立即切换；预览窗口在下一次打开时使用新的语言。", "The interface switches immediately; open preview windows pick up the new language next time."))
+            }
+            section(L10n.text("外观", "Appearance")) {
+                card {
+                    settingRow(L10n.text("在菜单栏显示", "Show in menu bar")) {
                         Toggle("", isOn: $showMenuBarIcon).labelsHidden()
                             .controlSize(.mini)
                     }
                 }
-                helper("在菜单栏提供打开 SpaceLens、进入 Quick Look 系统设置和退出应用的入口。")
+                helper(L10n.text("在菜单栏提供打开 SpaceLens、进入 Quick Look 系统设置和退出应用的入口。", "Adds a menu bar item to open SpaceLens, jump to the Quick Look settings and quit the app."))
             }
-            section("启动") {
+            section(L10n.text("启动", "Startup")) {
                 card {
-                    settingRow("开机自启动") {
+                    settingRow(L10n.text("开机自启动", "Launch at login")) {
                         if LaunchAtLogin.isSupported {
                             Toggle("", isOn: launchAtLoginBinding).labelsHidden()
                                 .controlSize(.mini)
                         } else {
-                            value("需要 macOS 13 或更高版本")
+                            value(L10n.text("需要 macOS 13 或更高版本", "Requires macOS 13 or later"))
                         }
                     }
                 }
-                helper("登录 Mac 后自动启动 SpaceLens，这样无需手动打开就能使用预览。")
+                helper(L10n.text("登录 Mac 后自动启动 SpaceLens，这样无需手动打开就能使用预览。", "Starts SpaceLens when you sign in, so previews are available without opening it by hand."))
             }
-            section("更新") {
+            section(L10n.text("更新", "Updates")) {
                 card {
-                    settingRow("自动检查更新") {
+                    settingRow(L10n.text("自动检查更新", "Check for updates automatically")) {
                         Toggle("", isOn: $checkForUpdates).labelsHidden()
                             .controlSize(.mini)
                     }
                     divider
-                    settingRow("检查更新") {
-                        Button("立即检查") {
+                    settingRow(L10n.text("检查更新", "Check for Updates")) {
+                        Button(L10n.text("立即检查", "Check Now")) {
                             Task { await updates.check() }
                         }
                     }
@@ -589,37 +617,37 @@ private struct SpaceLensSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("SpaceLens")
                             .font(.system(size: 20, weight: .semibold))
-                        Text("按下空格，多看一点。")
+                        Text(L10n.text("按下空格，多看一点。", "Press space, see more."))
                             .foregroundColor(.secondary)
                     }
                     Spacer(minLength: 0)
                 }
                 .padding(16)
                 divider
-                settingRow("当前版本") {
+                settingRow(L10n.text("当前版本", "Version")) {
                     HStack(spacing: 10) {
                         Text(updates.versionText).foregroundColor(.secondary)
-                        Button("检查更新") {
+                        Button(L10n.text("检查更新", "Check for Updates")) {
                             Task { await updates.check() }
                         }
                     }
                 }
             }
-            section("隐私与许可") {
+            section(L10n.text("隐私与许可", "Privacy and license")) {
                 card {
-                    settingRow("预览处理") {
-                        value("全部在本机完成")
+                    settingRow(L10n.text("预览处理", "Preview handling")) {
+                        value(L10n.text("全部在本机完成", "Handled entirely on this Mac"))
                     }
                     divider
-                    settingRow("网络请求") {
-                        value(checkForUpdates ? "仅检查更新时访问 GitHub" : "已关闭")
+                    settingRow(L10n.text("网络请求", "Network")) {
+                        value(checkForUpdates ? L10n.text("仅检查更新时访问 GitHub", "Only when checking for updates") : L10n.text("已关闭", "Off"))
                     }
                     divider
-                    settingRow("项目主页") {
-                        Button("在 GitHub 上查看", action: SpaceLensActions.openProjectPage)
+                    settingRow(L10n.text("项目主页", "Project page")) {
+                        Button(L10n.text("在 GitHub 上查看", "View on GitHub"), action: SpaceLensActions.openProjectPage)
                     }
                 }
-                helper("SpaceLens 使用 MIT License。不创建账号、不包含遥测、不上传文件；预览内容不会离开你的 Mac。")
+                helper(L10n.text("SpaceLens 使用 MIT License。不创建账号、不包含遥测、不上传文件；预览内容不会离开你的 Mac。", "SpaceLens is MIT licensed. No accounts, no telemetry, no uploads; previewed content never leaves your Mac."))
             }
         }
     }
@@ -639,11 +667,11 @@ private struct SpaceLensSettingsView: View {
 
     private var extensionStatusText: String {
         switch extensionStatus {
-        case .enabled: return "预览已启用"
-        case .disabled: return "预览已停用"
-        case .notEmbedded: return "未找到预览扩展"
-        case .unavailable: return "无法读取扩展状态"
-        case nil: return "正在检查扩展状态…"
+        case .enabled: return L10n.text("预览已启用", "Previews enabled")
+        case .disabled: return L10n.text("预览已停用", "Previews disabled")
+        case .notEmbedded: return L10n.text("未找到预览扩展", "Preview extension not found")
+        case .unavailable: return L10n.text("无法读取扩展状态", "Cannot read extension status")
+        case nil: return L10n.text("正在检查扩展状态…", "Checking extension status…")
         }
     }
 
@@ -671,16 +699,16 @@ private struct SpaceLensSettingsView: View {
         switch updates.status {
         case .idle:
             return checkForUpdates
-                ? "启动时会向 GitHub 查询最新版本号，不发送文件、文件名或使用数据。"
-                : "已关闭自动检查；仍可手动检查更新。"
+                ? L10n.text("启动时会向 GitHub 查询最新版本号，不发送文件、文件名或使用数据。", "Asks GitHub for the latest version number at launch; no files, file names or usage data are sent.")
+                : L10n.text("已关闭自动检查；仍可手动检查更新。", "Automatic checks are off; you can still check manually.")
         case .checking:
-            return "正在检查更新…"
+            return L10n.text("正在检查更新…", "Checking for updates…")
         case .upToDate:
-            return "已是最新版本。"
+            return L10n.text("已是最新版本。", "You are up to date.")
         case .available(let version):
-            return "发现新版本 \(version)，可在 GitHub 的发布页面查看。"
+            return L10n.text("发现新版本 \(version)，可在 GitHub 的发布页面查看。", "Version \(version) is available on the GitHub releases page.")
         case .failed:
-            return "检查更新失败：可能没有网络连接，或项目尚未在 GitHub 发布正式版本。"
+            return L10n.text("检查更新失败：可能没有网络连接，或项目尚未在 GitHub 发布正式版本。", "Update check failed: there may be no network connection, or the project has no published release yet.")
         }
     }
 

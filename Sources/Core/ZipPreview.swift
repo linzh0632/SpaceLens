@@ -9,12 +9,12 @@ enum ZipPreview {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
         let fileSize = try handle.seekToEnd()
-        guard fileSize >= 22 else { throw PreviewFailure.damagedArchive("找不到结束记录") }
+        guard fileSize >= 22 else { throw PreviewFailure.damagedArchive(L10n.text("找不到结束记录", "Central directory record not found")) }
         let tailLength = Int(min(UInt64(maximumTailBytes), fileSize))
         try handle.seek(toOffset: fileSize - UInt64(tailLength))
         let tail = try readExactly(handle, count: tailLength)
         guard let eocdOffset = findEOCD(in: tail) else {
-            throw PreviewFailure.damagedArchive("找不到结束记录")
+            throw PreviewFailure.damagedArchive(L10n.text("找不到结束记录", "Central directory record not found"))
         }
         let disk = tail.u16(eocdOffset + 4)
         let centralDisk = tail.u16(eocdOffset + 6)
@@ -22,9 +22,9 @@ enum ZipPreview {
         let totalEntries = tail.u16(eocdOffset + 10)
         let centralSize = tail.u32(eocdOffset + 12)
         let centralOffset = tail.u32(eocdOffset + 16)
-        guard disk == 0, centralDisk == 0, entriesOnDisk == totalEntries else { throw PreviewFailure.unsupportedArchive("不支持分卷 ZIP") }
-        guard totalEntries != UInt16.max, centralSize != UInt32.max, centralOffset != UInt32.max else { throw PreviewFailure.unsupportedArchive("M2 暂不支持 ZIP64") }
-        guard UInt64(centralOffset) + UInt64(centralSize) <= fileSize else { throw PreviewFailure.damagedArchive("中央目录超出文件范围") }
+        guard disk == 0, centralDisk == 0, entriesOnDisk == totalEntries else { throw PreviewFailure.unsupportedArchive(L10n.text("不支持分卷 ZIP", "Multi-part ZIP is not supported")) }
+        guard totalEntries != UInt16.max, centralSize != UInt32.max, centralOffset != UInt32.max else { throw PreviewFailure.unsupportedArchive(L10n.text("M2 暂不支持 ZIP64", "ZIP64 is not supported yet")) }
+        guard UInt64(centralOffset) + UInt64(centralSize) <= fileSize else { throw PreviewFailure.damagedArchive(L10n.text("中央目录超出文件范围", "Central directory is outside the file")) }
 
         try handle.seek(toOffset: UInt64(centralOffset))
         let count = Int(totalEntries)
@@ -40,9 +40,9 @@ enum ZipPreview {
         var centralBytesRead: UInt64 = 0
         for _ in 0..<visibleCount {
             try Task.checkCancellation()
-            guard centralBytesRead + 46 <= UInt64(centralSize) else { throw PreviewFailure.damagedArchive("中央目录条目越界") }
+            guard centralBytesRead + 46 <= UInt64(centralSize) else { throw PreviewFailure.damagedArchive(L10n.text("中央目录条目越界", "Central directory entry out of bounds")) }
             let fixed = try readExactly(handle, count: 46)
-            guard fixed.u32(0) == centralSignature else { throw PreviewFailure.damagedArchive("中央目录条目无效") }
+            guard fixed.u32(0) == centralSignature else { throw PreviewFailure.damagedArchive(L10n.text("中央目录条目无效", "Invalid central directory entry")) }
             let flags = fixed.u16(8)
             let method = fixed.u16(10)
             let modifiedTime = fixed.u16(12)
@@ -52,12 +52,12 @@ enum ZipPreview {
             let nameLength = Int(fixed.u16(28))
             let extraLength = Int(fixed.u16(30))
             let commentLength = Int(fixed.u16(32))
-            guard nameLength > 0 else { throw PreviewFailure.damagedArchive("存在空文件名") }
+            guard nameLength > 0 else { throw PreviewFailure.damagedArchive(L10n.text("存在空文件名", "An entry has an empty file name")) }
             let variableLength = nameLength + extraLength + commentLength
             centralBytesRead += 46 + UInt64(variableLength)
-            guard centralBytesRead <= UInt64(centralSize) else { throw PreviewFailure.damagedArchive("中央目录条目越界") }
+            guard centralBytesRead <= UInt64(centralSize) else { throw PreviewFailure.damagedArchive(L10n.text("中央目录条目越界", "Central directory entry out of bounds")) }
             guard compressed != UInt64(UInt32.max), uncompressed != UInt64(UInt32.max) else {
-                throw PreviewFailure.unsupportedArchive("M2 暂不支持 ZIP64 条目")
+                throw PreviewFailure.unsupportedArchive(L10n.text("M2 暂不支持 ZIP64 条目", "ZIP64 entries are not supported yet"))
             }
             let nameData = try readExactly(handle, count: nameLength)
             _ = try readExactly(handle, count: extraLength + commentLength)
@@ -73,14 +73,14 @@ enum ZipPreview {
             let addition = totalUncompressed.addingReportingOverflow(uncompressed)
             totalUncompressed = addition.overflow ? UInt64.max : addition.partialValue
             var notes: [String] = []
-            if encrypted { notes.append("已加密") }
-            if unsafe { notes.append("不安全路径") }
-            if suspicious { notes.append("异常压缩比") }
-            let note = notes.isEmpty ? "" : " · ⚠︎ " + notes.joined(separator: "、")
+            if encrypted { notes.append(L10n.text("已加密", "Encrypted")) }
+            if unsafe { notes.append(L10n.text("不安全路径", "Unsafe path")) }
+            if suspicious { notes.append(L10n.text("异常压缩比", "Suspicious compression ratio")) }
+            let note = notes.isEmpty ? "" : " · ⚠︎ " + notes.joined(separator: L10n.text("、", "; "))
             let size = folder ? "" : " · \(formatBytes(clampedInt64(uncompressed))) → \(formatBytes(clampedInt64(compressed)))"
             let modificationDate = dosDate(modifiedDate, modifiedTime)
             let date = modificationDate.map { " · \(formatDate($0))" } ?? ""
-            rows.append("[\(folder ? "文件夹" : "文件")] \(escape(name))\(size) · \(compressionName(method))\(date)\(note)")
+            rows.append("[\(folder ? L10n.text("文件夹", "Folder") : L10n.text("文件", "File"))] \(escape(name))\(size) · \(compressionName(method))\(date)\(note)")
             items.append(PreviewSnapshot.Item(path: escape(name), sourcePath: name,
                 kind: folder ? .folder : .file,
                 size: folder ? nil : clampedInt64(uncompressed),
@@ -88,20 +88,21 @@ enum ZipPreview {
                 modificationDate: modificationDate, compression: compressionName(method), warnings: notes))
         }
         var warnings: [String] = []
-        if count > visibleCount { warnings.append("仅显示前 \(visibleCount) 项") }
-        if encryptedCount > 0 { warnings.append("\(encryptedCount) 项加密") }
-        if unsafeCount > 0 { warnings.append("\(unsafeCount) 项路径不安全") }
-        if suspiciousCount > 0 { warnings.append("\(suspiciousCount) 项压缩比异常") }
-        let warningText = warnings.isEmpty ? "" : " · ⚠︎ " + warnings.joined(separator: "、")
+        if count > visibleCount { warnings.append(L10n.text("仅显示前 \(visibleCount) 项", "Showing the first \(visibleCount) entries")) }
+        if encryptedCount > 0 { warnings.append(L10n.text("\(encryptedCount) 项加密", "\(encryptedCount) encrypted")) }
+        if unsafeCount > 0 { warnings.append(L10n.text("\(unsafeCount) 项路径不安全", "\(unsafeCount) unsafe paths")) }
+        if suspiciousCount > 0 { warnings.append(L10n.text("\(suspiciousCount) 项压缩比异常", "\(suspiciousCount) suspicious compression ratios")) }
+        let warningText = warnings.isEmpty ? "" : " · ⚠︎ " + warnings.joined(separator: L10n.text("、", "; "))
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: "SpaceLens · ZIP · \(folderCount) 个文件夹 · \(fileCount) 个文件 · 解压后 \(formatBytes(clampedInt64(totalUncompressed)))\(warningText)",
-            body: rows.isEmpty ? "这是一个空 ZIP。" : rows.joined(separator: "\n"),
+            summary: L10n.text("SpaceLens · ZIP · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · 解压后 \(formatBytes(clampedInt64(totalUncompressed)))\(warningText)",
+                              "SpaceLens · ZIP · \(L10n.count(folderCount, "个文件夹", "folder", "folders")) · \(L10n.count(fileCount, "个文件", "file", "files")) · \(formatBytes(clampedInt64(totalUncompressed))) unpacked\(warningText)"),
+            body: rows.isEmpty ? L10n.text("这是一个空 ZIP。", "This is an empty ZIP.") : rows.joined(separator: "\n"),
             truncated: count > visibleCount, contentKind: .zip, items: items)
     }
 
     private static func readExactly(_ handle: FileHandle, count: Int) throws -> Data {
         if count == 0 { return Data() }
-        guard count >= 0, let data = try handle.read(upToCount: count), data.count == count else { throw PreviewFailure.damagedArchive("文件意外结束") }
+        guard count >= 0, let data = try handle.read(upToCount: count), data.count == count else { throw PreviewFailure.damagedArchive(L10n.text("文件意外结束", "Unexpected end of file")) }
         return data
     }
     private static func findEOCD(in data: Data) -> Int? {
@@ -116,7 +117,7 @@ enum ZipPreview {
     private static func decodeName(_ data: Data, utf8: Bool) -> String {
         if utf8, let value = String(data: data, encoding: .utf8) { return value }
         if let value = String(data: data, encoding: .utf8) { return value }
-        return String(data: data, encoding: .isoLatin1) ?? "<无法解码的文件名>"
+        return String(data: data, encoding: .isoLatin1) ?? L10n.text("<无法解码的文件名>", "<undecodable file name>")
     }
     private static func isUnsafePath(_ value: String) -> Bool {
         value.hasPrefix("/") || value.hasPrefix("\\") || value.contains("\0") ||
@@ -125,13 +126,13 @@ enum ZipPreview {
     }
     private static func compressionName(_ method: UInt16) -> String {
         switch method {
-        case 0: return "未压缩"
+        case 0: return L10n.text("未压缩", "Stored")
         case 8: return "Deflate"
         case 12: return "BZIP2"
         case 14: return "LZMA"
         case 93: return "Zstandard"
         case 99: return "AES"
-        default: return "压缩方法 \(method)"
+        default: return L10n.text("压缩方法 \(method)", "Compression method \(method)")
         }
     }
     private static func dosDate(_ date: UInt16, _ time: UInt16) -> Date? {

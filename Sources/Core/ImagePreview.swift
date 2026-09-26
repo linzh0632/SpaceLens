@@ -24,7 +24,7 @@ enum ImagePreview {
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard Int64(size) <= Int64(maximumFileBytes) else {
             throw PreviewFailure.unsupportedData(
-                "图片超过 \(formatBytes(Int64(maximumFileBytes))) 的安全读取上限。")
+                L10n.text("图片超过 \(formatBytes(Int64(maximumFileBytes))) 的安全读取上限。", "The image exceeds the \(formatBytes(Int64(maximumFileBytes))) safe read limit."))
         }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
         return try load(data: data, name: url.lastPathComponent)
@@ -34,17 +34,17 @@ enum ImagePreview {
     /// decoding so the guard itself is directly testable.
     static func validate(width: Int, height: Int) throws {
         guard width > 0, height > 0 else {
-            throw PreviewFailure.damagedData("无法读取图片尺寸。")
+            throw PreviewFailure.damagedData(L10n.text("无法读取图片尺寸。", "Cannot read the image dimensions."))
         }
         guard width <= maximumPixelDimension, height <= maximumPixelDimension else {
             throw PreviewFailure.unsupportedData(
-                "图片尺寸 \(width)×\(height) 超过安全上限（最长边 \(maximumPixelDimension) px、共 \(maximumPixelCount / 1_000_000) 百万像素）。")
+                L10n.text("图片尺寸 \(width)×\(height) 超过安全上限（最长边 \(maximumPixelDimension) px、共 \(maximumPixelCount / 1_000_000) 百万像素）。", "The image size \(width)×\(height) exceeds the safety limit (longest side \(maximumPixelDimension) px, \(maximumPixelCount / 1_000_000) megapixels in total)."))
         }
         // Check each dimension before multiplying so hostile metadata cannot overflow Int64.
         let pixels = Int64(width) * Int64(height)
         guard pixels <= maximumPixelCount else {
             throw PreviewFailure.unsupportedData(
-                "图片尺寸 \(width)×\(height) 超过安全上限（最长边 \(maximumPixelDimension) px、共 \(maximumPixelCount / 1_000_000) 百万像素）。")
+                L10n.text("图片尺寸 \(width)×\(height) 超过安全上限（最长边 \(maximumPixelDimension) px、共 \(maximumPixelCount / 1_000_000) 百万像素）。", "The image size \(width)×\(height) exceeds the safety limit (longest side \(maximumPixelDimension) px, \(maximumPixelCount / 1_000_000) megapixels in total)."))
         }
     }
 
@@ -52,20 +52,20 @@ enum ImagePreview {
         try Task.checkCancellation()
         guard data.count <= maximumFileBytes else {
             throw PreviewFailure.unsupportedData(
-                "图片超过 \(formatBytes(Int64(maximumFileBytes))) 的安全读取上限。")
+                L10n.text("图片超过 \(formatBytes(Int64(maximumFileBytes))) 的安全读取上限。", "The image exceeds the \(formatBytes(Int64(maximumFileBytes))) safe read limit."))
         }
         // Header-only inspection: reading the declared size is cheap and lets an oversized
         // image be rejected before any pixel buffer is allocated.
         guard let source = CGImageSourceCreateWithData(data as CFData,
             [kCGImageSourceShouldCache: false] as CFDictionary) else {
-            throw PreviewFailure.damagedData("图片无法解码。")
+            throw PreviewFailure.damagedData(L10n.text("图片无法解码。", "The image cannot be decoded."))
         }
         let frameCount = CGImageSourceGetCount(source)
-        guard frameCount > 0 else { throw PreviewFailure.damagedData("图片没有任何图像帧。") }
+        guard frameCount > 0 else { throw PreviewFailure.damagedData(L10n.text("图片没有任何图像帧。", "The image has no image frames.")) }
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
               let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue else {
-            throw PreviewFailure.damagedData("无法读取图片尺寸。")
+            throw PreviewFailure.damagedData(L10n.text("无法读取图片尺寸。", "Cannot read the image dimensions."))
         }
         try validate(width: width, height: height)
         try Task.checkCancellation()
@@ -77,25 +77,25 @@ enum ImagePreview {
             kCGImageSourceShouldCacheImmediately: true
         ]
         guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            throw PreviewFailure.damagedData("图片缩略图无法生成。")
+            throw PreviewFailure.damagedData(L10n.text("图片缩略图无法生成。", "The image thumbnail cannot be generated."))
         }
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(
             output as CFMutableData, UTType.png.identifier as CFString, 1, nil) else {
-            throw PreviewFailure.damagedData("图片无法重新编码。")
+            throw PreviewFailure.damagedData(L10n.text("图片无法重新编码。", "The image cannot be re-encoded."))
         }
         CGImageDestinationAddImage(destination, thumbnail, nil)
         guard CGImageDestinationFinalize(destination) else {
-            throw PreviewFailure.damagedData("图片无法重新编码。")
+            throw PreviewFailure.damagedData(L10n.text("图片无法重新编码。", "The image cannot be re-encoded."))
         }
         let png = output as Data
         guard png.count <= maximumThumbnailBytes else {
             throw PreviewFailure.unsupportedData(
-                "图片缩略图超过 \(formatBytes(Int64(maximumThumbnailBytes))) 的显示上限。")
+                L10n.text("图片缩略图超过 \(formatBytes(Int64(maximumThumbnailBytes))) 的显示上限。", "The image thumbnail exceeds the \(formatBytes(Int64(maximumThumbnailBytes))) display limit."))
         }
-        let frameNote = frameCount > 1 ? " · \(frameCount) 帧（显示第 1 帧）" : ""
+        let frameNote = frameCount > 1 ? L10n.text(" · \(frameCount) 帧（显示第 1 帧）", " · \(frameCount) frames (showing frame 1)") : ""
         return PreviewSnapshot(title: name,
-            summary: "SpaceLens · 图片 · \(width)×\(height) · 缩略图 \(thumbnail.width)×\(thumbnail.height)\(frameNote)",
+            summary: L10n.text("SpaceLens · 图片 · \(width)×\(height) · 缩略图 \(thumbnail.width)×\(thumbnail.height)\(frameNote)", "SpaceLens · Image · \(width)×\(height) · thumbnail \(thumbnail.width)×\(thumbnail.height)\(frameNote)"),
             body: "", truncated: false, contentKind: .image, imagePNGData: png)
     }
 }

@@ -8,7 +8,7 @@ enum DiagramPreview {
     static func load(source: String, truncated: Bool, name: String, ext: String,
                      byteLimit: Int) throws -> PreviewSnapshot {
         guard !truncated else {
-            throw PreviewFailure.malformedText("图表超过 \(formatBytes(Int64(byteLimit))) 的安全读取上限。")
+            throw PreviewFailure.malformedText(L10n.text("图表超过 \(formatBytes(Int64(byteLimit))) 的安全读取上限。", "The diagram exceeds the \(formatBytes(Int64(byteLimit))) safe read limit."))
         }
         try Task.checkCancellation()
         let result: Rendered
@@ -19,19 +19,19 @@ enum DiagramPreview {
         default: throw PreviewFailure.unsupported
         }
         return PreviewSnapshot(title: name,
-            summary: "SpaceLens · \(result.format) · \(result.elementCount) 个元素 · 本地安全渲染",
+            summary: L10n.text("SpaceLens · \(result.format) · \(result.elementCount) 个元素 · 本地安全渲染", "SpaceLens · \(result.format) · \(result.elementCount) elements · rendered safely on this Mac"),
             body: source, truncated: result.truncated, contentKind: .diagram,
             language: result.format, diagramSVG: result.svg)
     }
 
     private static func renderMermaid(_ source: String) throws -> Rendered {
         let lines = meaningfulLines(source, commentPrefix: "%%")
-        guard let first = lines.first else { throw malformed("Mermaid 文件为空。") }
+        guard let first = lines.first else { throw malformed(L10n.text("Mermaid 文件为空。", "The Mermaid file is empty.")) }
         if first.lowercased().hasPrefix("sequencediagram") {
             return try renderSequence(Array(lines.dropFirst()), format: "Mermaid", plantUML: false)
         }
         guard first.lowercased().hasPrefix("flowchart") || first.lowercased().hasPrefix("graph") else {
-            throw malformed("当前 Mermaid 预览支持 flowchart、graph 和 sequenceDiagram。")
+            throw malformed(L10n.text("当前 Mermaid 预览支持 flowchart、graph 和 sequenceDiagram。", "The Mermaid preview supports flowchart, graph and sequenceDiagram."))
         }
         return try renderGraph(Array(lines.dropFirst()), format: "Mermaid")
     }
@@ -39,7 +39,7 @@ enum DiagramPreview {
     private static func renderPlantUML(_ source: String) throws -> Rendered {
         var lines = meaningfulLines(source, commentPrefix: "'")
         lines.removeAll { $0.lowercased() == "@startuml" || $0.lowercased() == "@enduml" }
-        guard !lines.isEmpty else { throw malformed("PlantUML 文件为空。") }
+        guard !lines.isEmpty else { throw malformed(L10n.text("PlantUML 文件为空。", "The PlantUML file is empty.")) }
         let sequence = lines.contains { $0.contains("->") && $0.contains(":") }
         return sequence ? try renderSequence(lines, format: "PlantUML", plantUML: true)
                         : try renderGraph(lines, format: "PlantUML")
@@ -66,7 +66,7 @@ enum DiagramPreview {
                 add(cleaned)
             }
         }
-        guard !order.isEmpty else { throw malformed("没有识别到可渲染的节点。") }
+        guard !order.isEmpty else { throw malformed(L10n.text("没有识别到可渲染的节点。", "No renderable nodes were found.")) }
         let visibleOrder = Array(order.prefix(maximumElements))
         let width = 720.0
         let rowHeight = 110.0
@@ -126,7 +126,7 @@ enum DiagramPreview {
             addParticipant(a); addParticipant(b)
             messages.append((a, b, label, arrow.contains("--")))
         }
-        guard !participants.isEmpty else { throw malformed("没有识别到可渲染的参与者或消息。") }
+        guard !participants.isEmpty else { throw malformed(L10n.text("没有识别到可渲染的参与者或消息。", "No renderable participants or messages were found.")) }
         let count = min(participants.count, 20)
         let visible = Array(participants.prefix(count))
         let width = max(640.0, Double(count) * 180.0 + 80)
@@ -152,20 +152,23 @@ enum DiagramPreview {
     }
 
     private static func renderDrawIO(_ source: String) throws -> Rendered {
-        guard let data = source.data(using: .utf8) else { throw malformed("Draw.io XML 编码无效。") }
+        guard let data = source.data(using: .utf8) else { throw malformed(L10n.text("Draw.io XML 编码无效。", "Invalid Draw.io XML encoding.")) }
         let delegate = DrawIOParser()
         let parser = XMLParser(data: data); parser.delegate = delegate
-        guard parser.parse() else { throw malformed("Draw.io XML 格式错误：\(parser.parserError?.localizedDescription ?? "无法解析")") }
+        guard parser.parse() else {
+            let parserDetail = parser.parserError?.localizedDescription ?? L10n.text("无法解析", "cannot parse")
+            throw malformed(L10n.text("Draw.io XML 格式错误：\(parserDetail)", "Draw.io XML error: \(parserDetail)"))
+        }
         var graph = delegate
         if graph.nodes.isEmpty, !graph.diagramText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let decoded = try decodeDrawIOPayload(graph.diagramText)
             let inner = DrawIOParser()
             let innerParser = XMLParser(data: decoded); innerParser.delegate = inner
-            guard innerParser.parse() else { throw malformed("Draw.io 压缩图表内容无法解析。") }
+            guard innerParser.parse() else { throw malformed(L10n.text("Draw.io 压缩图表内容无法解析。", "Cannot parse the compressed Draw.io diagram content.")) }
             graph = inner
         }
         let nodes = Array(graph.nodes.values.prefix(maximumElements))
-        guard !nodes.isEmpty else { throw malformed("Draw.io 文件中没有可显示的图形。") }
+        guard !nodes.isEmpty else { throw malformed(L10n.text("Draw.io 文件中没有可显示的图形。", "This Draw.io file has no shapes to display.")) }
         let maxX = nodes.map { $0.x+$0.width }.max() ?? 800
         let maxY = nodes.map { $0.y+$0.height }.max() ?? 600
         let width=max(400,maxX+40), height=max(240,maxY+40)
@@ -190,7 +193,7 @@ enum DiagramPreview {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let unescaped = trimmed.removingPercentEncoding ?? trimmed
         guard let compressed = Data(base64Encoded: unescaped, options: .ignoreUnknownCharacters), !compressed.isEmpty else {
-            throw malformed("Draw.io 压缩内容不是有效的 Base64 数据。")
+            throw malformed(L10n.text("Draw.io 压缩内容不是有效的 Base64 数据。", "Draw.io compressed content is not valid Base64 data."))
         }
         var capacity = 64 * 1024
         let limit = 5 * 1024 * 1024
@@ -203,7 +206,7 @@ enum DiagramPreview {
             if decoded > 0 && decoded < capacity { return Data(output.prefix(decoded)) }
             capacity *= 2
         }
-        throw malformed("Draw.io 压缩内容损坏或解压后超过 5 MiB。")
+        throw malformed(L10n.text("Draw.io 压缩内容损坏或解压后超过 5 MiB。", "Draw.io compressed content is corrupt or expands beyond 5 MiB."))
     }
 
     private static func meaningfulLines(_ source: String, commentPrefix: String) -> [String] {
@@ -237,7 +240,7 @@ enum DiagramPreview {
     private static func cleanParticipant(_ value:String)->String {
         value.trimmingCharacters(in:.whitespaces).replacingOccurrences(of:#"^[+\-*]+|[+\-*]+$"#,with:"",options:.regularExpression)
     }
-    private static func malformed(_ detail:String)->PreviewFailure { .malformedText("图表格式错误：\(detail)") }
+    private static func malformed(_ detail:String)->PreviewFailure { .malformedText(L10n.text("图表格式错误：\(detail)", "Invalid diagram: \(detail)")) }
     private static func stripHTML(_ value:String)->String { value.replacingOccurrences(of:#"<[^>]+>"#,with:"",options:.regularExpression) }
     private static func escaped(_ value:String)->String { value.replacingOccurrences(of:"&",with:"&amp;").replacingOccurrences(of:"<",with:"&lt;").replacingOccurrences(of:">",with:"&gt;").replacingOccurrences(of:"\"",with:"&quot;") }
     private static func text(_ value:String,x:Double,y:Double,css:String)->String { #"<text x="\#(x)" y="\#(y)" class="\#(css)" text-anchor="middle">\#(escaped(value))</text>"# }
