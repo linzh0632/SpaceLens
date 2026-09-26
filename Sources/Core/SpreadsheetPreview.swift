@@ -80,8 +80,10 @@ public enum SpreadsheetPreview {
         }
         let noteText = notes.isEmpty ? "" : " · " + notes.joined(separator: " · ")
 
+        // The worksheet name comes from the file, so it is labelled as a name rather than translated.
+        let sheetLabel = L10n.text("工作表「\(firstSheet.name)」", "sheet \"\(firstSheet.name)\"")
         return PreviewSnapshot(title: url.lastPathComponent,
-            summary: "SpaceLens · XLSX · \(firstSheet.name) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(columns.count, "列", "column", "columns"))\(noteText)",
+            summary: "SpaceLens · XLSX · \(sheetLabel) · \(L10n.count(totalRows, "行", "row", "rows")) · \(L10n.count(columns.count, "列", "column", "columns"))\(noteText)",
             body: "", truncated: grid.truncated || omitted > 0, contentKind: .table,
             table: .init(columns: columns, rows: Array(visibleRows), omittedRowCount: omitted))
     }

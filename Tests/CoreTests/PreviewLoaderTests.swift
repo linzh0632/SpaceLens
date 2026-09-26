@@ -691,6 +691,18 @@ final class PreviewLoaderTests: XCTestCase {
         XCTAssertEqual(snapshot.table?.rows, [["a", "42"]])
     }
 
+    /// The English wording is never exercised by the other tests, which pin Chinese in `setUp`.
+    func testSpreadsheetSummaryUsesEnglishWording() throws {
+        L10n.pinForTesting(.english)
+        let url = try writeXLSX("Book.xlsx", sheets: [("Sheet1", firstCell: "alpha")])
+        let snapshot = try PreviewLoader.load(url)
+        XCTAssertTrue(snapshot.summary.contains("sheet \"Sheet1\""), snapshot.summary)
+        XCTAssertTrue(snapshot.summary.contains("1 row"), snapshot.summary)
+        XCTAssertFalse(snapshot.summary.contains("1 rows"), snapshot.summary)
+        XCTAssertTrue(snapshot.summary.contains("2 columns"), snapshot.summary)
+    }
+
+
 }
 
 private struct ZipEntry {
