@@ -54,6 +54,8 @@ cd SpaceLens
 
 这一步只在首次安装时需要。想彻底免掉它，只能使用 Apple Developer ID 签名并公证，详见[维护说明](MAINTENANCE.md)。
 
+发布新版本时打上 `v<版本>` 标签即可，CI 会自动构建 DMG 并发布到 GitHub Release（见[维护说明](MAINTENANCE.md)的“发布”一节）。
+
 ## 更新
 
 拉取最新代码，退出 SpaceLens 并关闭所有 Quick Look 窗口，然后运行：

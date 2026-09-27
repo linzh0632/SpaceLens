@@ -8,6 +8,19 @@
 
 每个候选版本同时更新 `Config/App-Info.plist` 与 `Config/Preview-Info.plist` 中的短版本和构建号，构建号必须递增。同步更新 `CHANGELOG.md` 和用户文档。覆盖安装前退出 SpaceLens 和 Quick Look 窗口，然后运行 `./scripts/build.sh` 和 `./scripts/install.sh --replace`。
 
+## 发布
+
+发布由打标签触发，标签必须与两个 Info.plist 中的短版本一致（去掉 `v` 前缀）：
+
+```sh
+git tag v0.9.2
+git push origin v0.9.2
+```
+
+`.github/workflows/release.yml` 随后会：校验标签与 `CFBundleShortVersionString` 一致（不一致直接失败）、运行与 `main` 相同的发布检查、构建 DMG，再用 `scripts/release-notes.sh` 生成发布说明（CHANGELOG 对应小节 + 安装步骤 + sha256）并创建 Release 并上传 DMG。需要重跑时可在 Actions 页面用 "Run workflow" 填入已存在的标签。
+
+发布说明中**必须保留 Gatekeeper 放行步骤**：当前映像为 ad hoc 签名，未经 Developer ID 签名与公证，下载者首次打开会被拦下。
+
 ## 安全卸载
 
 退出 SpaceLens 和 Quick Look 窗口后运行 `./scripts/uninstall.sh --remove`。脚本只处理 bundle identifier 为 `io.github.linzh0632.SpaceLens` 的应用，将其移入废纸篓，并注销随附的 Quick Look 扩展。源码仓库和用户文件不会被修改。

@@ -12,6 +12,7 @@
 - 新增 `scripts/package-dmg.sh`：构建 Release 版本并打包成 `build/dmg/SpaceLens-<版本>.dmg`，内含应用与指向 `/Applications` 的快捷方式。
 - 打包前会校验：预览扩展存在、二进制为 arm64 + x86_64 通用、app 与扩展签名有效、主应用没有文档打开角色。输出压缩映像（UDZO）并打印 sha256。
 - 安装文档补充"打包 DMG"与"从 DMG 安装（未公证）"两节，给出首次打开的两种放行方式（右键打开，或 `xattr -dr com.apple.quarantine`）。映像仍为本机 ad hoc 签名，未经 Developer ID 签名与公证。
+- 新增 `.github/workflows/release.yml`：推送 `v<版本>` 标签即自动校验标签与版本一致、跑发布检查、构建 DMG、生成发布说明（`scripts/release-notes.sh`，含安装与放行步骤及 sha256）并创建 GitHub Release。
 
 ## 0.9.1 — 2026-09-26
 
