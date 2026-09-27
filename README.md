@@ -1,32 +1,43 @@
 # SpaceLens
 
-按下空格，多看一点。
+**按下空格，多看一点。**
 
-SpaceLens 是一个开源的 macOS Quick Look 扩展，用来直接预览文件夹、压缩包、代码、结构化数据和常见开发文件。所有解析和渲染都在本机完成；它只负责预览，不会接管文件的双击打开方式。
+[English](README.en.md) · 简体中文
 
 [![macOS release check](https://github.com/linzh0632/SpaceLens/actions/workflows/macos.yml/badge.svg?branch=main)](https://github.com/linzh0632/SpaceLens/actions/workflows/macos.yml)
 
-## 主要功能
+SpaceLens 是一个开源的 macOS Quick Look 扩展。它让 Finder 可以直接预览文件夹、压缩包、代码、结构化数据和常见开发文件，同时保留 macOS 原生 Quick Look 的使用方式：选中文件，按下空格即可。
 
-- 文件夹和归档以可展开的树形列表显示名称、类型、大小和修改时间。
-- 点击文件夹或 ZIP 中的文件，可在右侧窗格继续预览内容。
-- 支持 Markdown、代码、配置、JSON、JSON Lines、TSV、plist、SQLite 和 Jupyter Notebook。
-- 支持 TAR、GZ、TGZ、BZ2、TBZ2、XZ、TXZ 等常见归档格式。
-- 支持 Mermaid、PlantUML、Draw.io、Parquet、Arrow、Feather 和 Avro。
-- 文件夹的右侧窗格可以把 `.xlsx` / `.xlsm` 的工作表读成表格，并用底部标签栏切换工作表（工作表多时右侧会出现“»”完整列表）：只读、公式不求解、宏不读取。
-- 界面提供简体中文与英文两种语言，可在“通用设置 → 语言”中切换；预览窗口使用同一语言。
-- 日期和明暗外观跟随 macOS 设置。
-- 设置界面按“功能设置 / 通用设置 / 关于”分区，集中显示扩展状态与预览范围，并提供菜单栏图标、开机自启动与检查更新。
-- 无账号、无遥测、不上传文件；唯一的网络请求是检查更新时向 GitHub 查询版本号，默认关闭，可在通用设置中开启。不执行预览文件中的代码。
+所有文件解析和渲染都在本机完成。SpaceLens 只负责预览，不编辑文件，也不会成为文件的默认打开应用。
 
-完整格式与限制见[支持格式](docs/FEATURE-MATRIX.md)。
+## 为什么使用 SpaceLens
+
+- **浏览文件夹和归档**：以可展开的树形列表查看名称、类型、大小和修改时间。
+- **就地查看文件内容**：在列表中选择文件，右侧窗格继续显示图片、文本、代码、表格或结构化内容。
+- **覆盖开发常用格式**：支持 Markdown、代码与配置、JSON、plist、SQLite、Notebook、图表和列式数据。
+- **保留系统原生体验**：图片、PDF、音视频等格式继续使用 macOS 原生 Quick Look。
+- **本地、只读、可控**：无账号、无遥测、不上传文件、不执行预览内容；更新检查默认关闭。
+
+## 支持范围
+
+| 类别 | 代表格式 |
+|---|---|
+| 文件夹与归档 | 文件夹、ZIP、TAR、GZ、TGZ、BZ2、TBZ2、XZ、TXZ |
+| 文本与代码 | Markdown、常见源代码、配置、日志、diff、SQL、GraphQL、UTF-8/UTF-16 文本 |
+| 结构化数据 | JSON、JSON Lines、TSV、XML/Binary/OpenStep plist、SQLite |
+| 技术文档 | Jupyter Notebook、MDX、Quarto、R Markdown、reStructuredText、AsciiDoc、TeX |
+| 图表 | Mermaid、PlantUML、Draw.io |
+| 数据工程 | Parquet、Arrow IPC、Feather v2、Avro OCF |
+| 文件夹内表格 | `.xlsx`、`.xlsm`，支持工作表切换 |
+
+不同格式的读取上限、容器内预览能力和已知限制见[支持格式与限制](docs/FEATURE-MATRIX.md)。
 
 ## 系统要求
 
-- macOS 12 或更高版本
-- 完整版 Xcode 及 Command Line Tools（从源码构建时需要）
+- **运行构建后的应用**：macOS 12 或更高版本。
+- **从当前源码构建**：macOS 15.6 或更高版本、Xcode 26 或更高版本。新版应用图标使用 Xcode 26 引入的 Icon Composer 格式。
 
-目前已在 Apple Silicon 和 macOS 27 上完成实机验收。项目会构建 arm64 与 x86_64 通用应用，但 Intel Mac 和较早 macOS 版本尚未完成实机测试。
+项目会生成 arm64 与 x86_64 通用应用。目前已在 Apple Silicon、macOS 27 上完成实机验收；Intel Mac 和 macOS 12–26 尚未完成实机测试。由于当前只提供源码安装，实际构建机器需要满足上面的 Xcode 要求。
 
 ## 安装
 
@@ -39,27 +50,47 @@ cd SpaceLens
 ./scripts/install.sh
 ```
 
-默认安装到 `/Applications/SpaceLens.app`。首次使用时，如 Finder 没有调用 SpaceLens，请在“系统设置 → 通用 → 登录项与扩展 → Quick Look”中启用它。
+应用默认安装到 `/Applications/SpaceLens.app`。首次启动后，如果 Finder 仍使用系统信息面板，请前往“系统设置 → 通用 → 登录项与扩展 → Quick Look”并启用 SpaceLens。
 
-详细的更新、卸载和故障排查步骤见[安装指南](docs/INSTALL.md)。
+更新、卸载和故障排查步骤见[安装指南](docs/INSTALL.md)。
 
 ## 使用
 
-1. 在 Finder 中选中文件、文件夹或归档。
-2. 按空格打开 Quick Look。
-3. 在文件夹或归档列表中选择文件，即可在右侧窗格继续预览；点击“关闭”可收起右侧窗格。
+1. 打开 SpaceLens，让预览扩展在本次会话中生效。
+2. 在 Finder 中选中文件、文件夹或归档并按空格。
+3. 在文件夹或归档列表中选择文件，可在右侧继续预览；点击“关闭”收起右侧窗格。
 
-SpaceLens 只在运行时提供预览：退出应用会停用预览扩展，空格预览回到 macOS 原生行为，重新打开应用后自动恢复。因此重启 Mac 后需要先打开一次 SpaceLens；在通用设置中开启“开机自启动”后，登录时它会自动启动，预览随之可用。
+SpaceLens 只在应用运行时提供预览。正常退出 SpaceLens 会停用扩展，让空格预览回到 macOS 原生行为；重新打开应用会自动恢复。若希望每次登录后立即可用，可在“通用设置”中开启“开机自启动”（macOS 13 或更高版本）。
 
-SpaceLens 不注册为文档打开程序。双击文件仍由系统或你选择的编辑器处理。图片、PDF、音频和视频等 macOS 已经支持的格式继续使用系统原生 Quick Look；在 macOS 27 上，CSV 与普通 TXT 也可能优先使用系统预览。`.xlsx` / `.xlsm` 不在 SpaceLens 的直接预览范围内：直接按空格由系统或 Excel 处理，只有在文件夹的右侧窗格中才会由 SpaceLens 读成表格（可在窗格底部切换工作表）。
+## 需要了解的边界
+
+- SpaceLens 不注册文档打开角色。双击文件仍由原有默认应用处理。
+- macOS 会在多个 Quick Look 扩展之间选择处理器，因此 CSV、普通 TXT 或其他已有系统预览的格式可能不会交给 SpaceLens。
+- `.xlsx` / `.xlsm` 仅支持在**文件夹右侧窗格**中预览；直接按空格仍由系统或 Excel 处理，压缩包内的 Excel 文件暂不支持。
+- 公式只显示工作簿中保存的缓存值，SpaceLens 不计算公式，也不读取或运行宏。
 
 ## 隐私与安全
 
-SpaceLens 只读取你在 Finder 中选择预览的内容，不上传文件，不收集使用数据，也不加载远程资源。唯一的网络请求是检查更新时向 GitHub 查询版本号，默认关闭，可在通用设置中开启。详细说明见[隐私说明](docs/PRIVACY.md)和[安全策略](SECURITY.md)。
+SpaceLens 不上传文件、文件名、目录结构或预览结果，不加载文档中的远程资源，也不执行源代码、脚本、Notebook 单元格或文档宏。唯一的网络功能是可选的更新检查：启用后向 GitHub 查询最新版本号，默认关闭。
 
-## 参与开发
+详见[隐私说明](docs/PRIVACY.md)、[安全策略](SECURITY.md)和[文件关联说明](docs/FILE-ASSOCIATIONS.md)。
 
-欢迎提交问题和改进。开始前请阅读[贡献指南](CONTRIBUTING.md)。项目的自动检查、构建边界和维护流程见[维护说明](docs/MAINTENANCE.md)。
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [安装指南](docs/INSTALL.md) | 构建、安装、更新、卸载与故障排查 |
+| [支持格式与限制](docs/FEATURE-MATRIX.md) | 完整格式范围、安全上限与容器预览限制 |
+| [隐私说明](docs/PRIVACY.md) | 本地处理、网络行为和偏好设置 |
+| [贡献指南](CONTRIBUTING.md) | 开发环境、测试和 Pull Request 要求 |
+| [维护说明](docs/MAINTENANCE.md) | 版本更新与发布检查 |
+| [更新记录](CHANGELOG.md) | 各版本变化 |
+
+更多资料及历史开发记录见[文档索引](docs/README.md)。
+
+## 参与项目
+
+欢迎提交 Issue 和 Pull Request。报告兼容性问题时，请避免上传包含隐私信息的真实文件，并尽量提供最小的合成样例。开始开发前请阅读[贡献指南](CONTRIBUTING.md)。
 
 ## 许可证
 
