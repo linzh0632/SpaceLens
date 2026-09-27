@@ -49,7 +49,7 @@ SpaceLens 从压缩包预览起步，如今也能预览文件夹、代码、文�
 
 ## 安装
 
-SpaceLens 目前提供源码安装，尚未发布经过 Apple Developer ID 签名和公证的安装包。
+SpaceLens 目前提供源码安装，尚未发布经过 Apple Developer ID 签名和公证的安装包；维护者可用 `./scripts/package-dmg.sh` 生成 ad hoc 签名的 DMG（首次打开需按[安装文档](docs/INSTALL.md)放行 Gatekeeper）。
 
 ```sh
 git clone https://github.com/linzh0632/SpaceLens.git

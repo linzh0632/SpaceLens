@@ -7,6 +7,12 @@
 - GitHub Actions 更新为带 Xcode 26 的 `macos-26` 环境，以支持当前 Icon Composer 图标工程。
 - 避免长期缓存跨线程共享的 `UserDefaults` 实例，为后续启用 Swift 6 严格并发检查做好准备；语言选择行为不变。
 
+## 0.9.2 — 2026-09-27
+
+- 新增 `scripts/package-dmg.sh`：构建 Release 版本并打包成 `build/dmg/SpaceLens-<版本>.dmg`，内含应用与指向 `/Applications` 的快捷方式。
+- 打包前会校验：预览扩展存在、二进制为 arm64 + x86_64 通用、app 与扩展签名有效、主应用没有文档打开角色。输出压缩映像（UDZO）并打印 sha256。
+- 安装文档补充"打包 DMG"与"从 DMG 安装（未公证）"两节，给出首次打开的两种放行方式（右键打开，或 `xattr -dr com.apple.quarantine`）。映像仍为本机 ad hoc 签名，未经 Developer ID 签名与公证。
+
 ## 0.9.1 — 2026-09-26
 
 - 工作表标签栏放不下时，右侧出现“»”按钮：点击弹出完整的工作表列表（当前项打勾）并可直接切换，与 Excel 的做法一致。
