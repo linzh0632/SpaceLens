@@ -10,6 +10,27 @@ SpaceLens is an open-source Quick Look extension for macOS. It adds previews for
 
 All parsing and rendering happens locally. SpaceLens is preview-only: it does not edit files or become their default application.
 
+## Screenshots
+
+### Folder and content preview
+
+Select an item in the file tree to inspect supported structured data, text, source code, and more in the detail pane.
+
+![SpaceLens folder and JSON content preview](docs/images/folder-preview.png)
+
+### Archive preview
+
+Browse an archive without extracting it, then inspect its files in the same window.
+
+![SpaceLens TAR archive and text content preview](docs/images/archive-preview.png)
+
+### App settings
+
+<p align="center">
+  <img src="docs/images/settings-features.png" width="49%" alt="SpaceLens feature settings">
+  <img src="docs/images/settings-about.png" width="49%" alt="SpaceLens About and privacy page">
+</p>
+
 ## Why I Built SpaceLens
 
 SpaceLens is my first open-source project. It began with a simple moment: before sending a compressed copy of my paper to my advisor, I wanted to verify that every file was there. macOS Quick Look could show basic information about the archive, but it could not reveal what was inside. After searching for a solution, I found that most apps offering this capability were paid, so I decided to build one myself with the help of AI. That experiment became SpaceLens.

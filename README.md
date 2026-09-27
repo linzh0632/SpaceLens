@@ -10,6 +10,27 @@ SpaceLens 是一个开源的 macOS Quick Look 扩展。它让 Finder 可以直�
 
 所有文件解析和渲染都在本机完成。SpaceLens 只负责预览，不编辑文件，也不会成为文件的默认打开应用。
 
+## 界面预览
+
+### 文件夹与内容预览
+
+在文件树中选择内容，右侧即可继续查看结构化数据、文本、代码等支持的格式。
+
+![SpaceLens 文件夹与 JSON 内容预览](docs/images/folder-preview.png)
+
+### 归档内容预览
+
+无需解压即可浏览归档目录，并在同一窗口查看其中的文件内容。
+
+![SpaceLens TAR 归档与文本内容预览](docs/images/archive-preview.png)
+
+### 应用设置
+
+<p align="center">
+  <img src="docs/images/settings-features.png" width="49%" alt="SpaceLens 功能设置页面">
+  <img src="docs/images/settings-about.png" width="49%" alt="SpaceLens 关于与隐私页面">
+</p>
+
 ## 项目缘起
 
 SpaceLens 是我的第一个开源项目。它源于一次很普通的经历：把论文打包发给老师之前，我想先确认压缩包里的文件是否完整，却发现 macOS 原生 Quick Look 只能显示压缩包的基本信息，无法直接浏览其中的内容。搜索之后，我发现能够实现类似功能的应用大多需要付费，于是决定在 AI 的协助下自己动手开发，最终有了 SpaceLens。
