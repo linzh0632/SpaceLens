@@ -214,6 +214,7 @@ private final class UpdateCenter: ObservableObject {
         case checking
         case upToDate
         case available(String)
+        case noPublishedRelease
         case failed
     }
 
@@ -237,10 +238,21 @@ private final class UpdateCenter: ObservableObject {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        request.setValue("SpaceLens/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            guard let http = response as? HTTPURLResponse else {
+                status = .failed
+                return
+            }
+            if http.statusCode == 404 {
+                appLogger.notice("Update check found no published release")
+                status = .noPublishedRelease
+                return
+            }
+            guard http.statusCode == 200 else {
+                let code = http.statusCode
                 appLogger.notice("Update check returned HTTP \(code, privacy: .public)")
                 status = .failed
                 return
@@ -595,8 +607,14 @@ private struct SpaceLensSettingsView: View {
                     }
                     divider
                     settingRow(L10n.text("检查更新", "Check for Updates")) {
-                        Button(L10n.text("立即检查", "Check Now")) {
-                            Task { await updates.check() }
+                        HStack(spacing: 8) {
+                            Button(L10n.text("立即检查", "Check Now")) {
+                                Task { await updates.check() }
+                            }
+                            .disabled(updates.status == .checking)
+                            if case .available = updates.status {
+                                Button(L10n.text("查看版本", "View Release"), action: SpaceLensActions.openReleasesPage)
+                            }
                         }
                     }
                 }
@@ -630,8 +648,13 @@ private struct SpaceLensSettingsView: View {
                         Button(L10n.text("检查更新", "Check for Updates")) {
                             Task { await updates.check() }
                         }
+                        .disabled(updates.status == .checking)
+                        if case .available = updates.status {
+                            Button(L10n.text("查看版本", "View Release"), action: SpaceLensActions.openReleasesPage)
+                        }
                     }
                 }
+                helper(updateHelperText)
             }
             section(L10n.text("隐私与许可", "Privacy and license")) {
                 card {
@@ -707,8 +730,10 @@ private struct SpaceLensSettingsView: View {
             return L10n.text("已是最新版本。", "You are up to date.")
         case .available(let version):
             return L10n.text("发现新版本 \(version)，可在 GitHub 的发布页面查看。", "Version \(version) is available on the GitHub releases page.")
+        case .noPublishedRelease:
+            return L10n.text("项目尚未在 GitHub 发布正式版本。", "No official release has been published on GitHub yet.")
         case .failed:
-            return L10n.text("检查更新失败：可能没有网络连接，或项目尚未在 GitHub 发布正式版本。", "Update check failed: there may be no network connection, or the project has no published release yet.")
+            return L10n.text("检查更新失败，请检查网络连接后重试。", "Update check failed. Check your network connection and try again.")
         }
     }
 
