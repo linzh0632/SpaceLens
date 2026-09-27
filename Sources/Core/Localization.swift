@@ -21,7 +21,6 @@ public enum L10n {
     public static let preferenceDomain = "io.github.linzh0632.SpaceLens"
     public static let languageKey = "language"
 
-    private static let sharedDefaults = UserDefaults(suiteName: preferenceDomain)
     /// Test override, so assertions never depend on the machine running them.
     private static let pin = LanguagePin()
 
@@ -44,7 +43,7 @@ public enum L10n {
     /// shared-preference suite granted by its entitlements.
     private static func storedValue() -> String? {
         if let raw = UserDefaults.standard.string(forKey: languageKey) { return raw }
-        return sharedDefaults?.string(forKey: languageKey)
+        return UserDefaults(suiteName: preferenceDomain)?.string(forKey: languageKey)
     }
 
     public static var isEnglish: Bool { language == .english }
