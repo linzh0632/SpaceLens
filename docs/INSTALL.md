@@ -1,19 +1,28 @@
 # 安装 SpaceLens
 
-SpaceLens 当前版本为 **0.9.2（构建 25）**。目前没有已签名、公证的二进制安装包，需要使用完整 Xcode 从源码构建。构建出的通用应用以 macOS 12 为最低运行目标，但当前源码使用 Xcode 26 的 Icon Composer 图标格式，因此构建机器需要 macOS 15.6 或更高版本。
+SpaceLens 当前版本为 **0.9.2（构建 25）**，可从 [GitHub Releases](https://github.com/linzh0632/SpaceLens/releases/latest) 下载通用 DMG，支持 Apple Silicon 与 Intel，最低运行目标为 macOS 12。当前 DMG 使用 ad hoc 签名且未经 Apple Developer ID 公证，因此首次打开需要手动放行 Gatekeeper。
 
-## 准备环境
+## 从 DMG 安装（推荐）
 
-1. 安装 Xcode 26 或更高版本。
-2. 首次打开 Xcode，同意许可协议并等待必要组件安装完成。
-3. 在终端确认开发工具可用：
+1. 从 [GitHub Releases](https://github.com/linzh0632/SpaceLens/releases/latest) 下载 `SpaceLens-<版本>.dmg`。
+2. 打开 DMG，把 **SpaceLens** 拖到旁边的 **Applications** 快捷方式上。必须放在 `/Applications`，Quick Look 扩展才会稳定注册。
+3. 首次打开会被系统拦下（提示“无法验证开发者”或“已损坏，应移到废纸篓”）。任选一种方式放行：
+   - 在 Finder 里按住 Control 点击（或右键）SpaceLens →“打开”，在弹窗中再次选择“打开”；
+   - 或在终端执行：
+     ```sh
+     xattr -dr com.apple.quarantine /Applications/SpaceLens.app
+     ```
+4. 启动一次 SpaceLens。若 Finder 仍显示系统默认信息面板，请前往“系统设置 → 通用 → 登录项与扩展 → Quick Look”并启用 SpaceLens。
 
-```sh
-xcodebuild -version
-swift --version
-```
+Gatekeeper 放行通常只在首次安装时需要。想完全免去这一步，需要使用 Apple Developer ID 签名并完成 Apple 公证。
 
-## 构建并安装
+## 从源码构建
+
+当前源码使用 Xcode 26 的 Icon Composer 图标格式，因此构建机器需要 macOS 15.6 或更高版本以及 Xcode 26 或更高版本。
+
+1. 安装并打开 Xcode，同意许可协议并等待必要组件安装完成。
+2. 在终端确认 `xcodebuild -version` 和 `swift --version` 可以正常运行。
+3. 构建并安装：
 
 ```sh
 git clone https://github.com/linzh0632/SpaceLens.git
@@ -22,11 +31,7 @@ cd SpaceLens
 ./scripts/install.sh
 ```
 
-应用默认安装到 `/Applications/SpaceLens.app`，安装脚本使用本地 ad hoc 签名，不需要付费开发者账号。macOS 可能要求你允许写入“应用程序”文件夹。
-
-安装完成后，在 Finder 中选中一个文件夹并按空格。如果仍显示系统默认信息面板，请前往“系统设置 → 通用 → 登录项与扩展 → Quick Look”，启用 SpaceLens，然后重新打开 Quick Look。
-
-也可以使用 Xcode 打开 `SpaceLens.xcodeproj`，选择 `SpaceLens` scheme 后构建。签名设置保持 `Sign to Run Locally` 即可。
+安装脚本会把应用放到 `/Applications/SpaceLens.app`，使用本地 ad hoc 签名，不需要付费开发者账号。也可以使用 Xcode 打开 `SpaceLens.xcodeproj`，选择 `SpaceLens` scheme 后构建，签名设置保持 `Sign to Run Locally`。
 
 ## 打包 DMG
 
@@ -38,21 +43,7 @@ cd SpaceLens
 
 脚本会先构建 Release 版本，校验内嵌的预览扩展存在、二进制是 arm64 + x86_64 通用、以及 app 与扩展的签名都能通过校验，然后把 `SpaceLens.app` 和指向 `/Applications` 的快捷方式一起放进映像。输出的是压缩映像（UDZO），并会打印 sha256 供发布说明使用。
 
-映像使用**本机 ad hoc 签名**，没有经过 Apple Developer ID 签名与公证，因此下载者的首次打开会被 Gatekeeper 拦下——见下一节。
-
-## 从 DMG 安装（未公证）
-
-1. 打开 DMG，把 **SpaceLens** 拖到旁边的 **Applications** 快捷方式上。
-   必须放在 `/Applications`：Quick Look 扩展只有在应用位于此处时才会稳定注册。
-2. 首次打开会被系统拦下（提示"无法验证开发者"或"已损坏，应移到废纸篓"）。任选一种方式放行：
-   - 在 Finder 里**按住 Control 点击（或右键）SpaceLens → 打开**，在弹窗里再点一次"打开"；
-   - 或者清除下载隔离属性：
-     ```sh
-     xattr -dr com.apple.quarantine /Applications/SpaceLens.app
-     ```
-3. 启动一次 SpaceLens（它会在启动时确认预览扩展处于启用状态），之后即可用空格预览支持的文件与文件夹。
-
-这一步只在首次安装时需要。想彻底免掉它，只能使用 Apple Developer ID 签名并公证，详见[维护说明](MAINTENANCE.md)。
+映像使用**本机 ad hoc 签名**，没有经过 Apple Developer ID 签名与公证，因此下载者的首次打开会被 Gatekeeper 拦下；放行步骤见上文“从 DMG 安装”。
 
 发布新版本时打上 `v<版本>` 标签即可，CI 会自动构建 DMG 并发布到 GitHub Release（见[维护说明](MAINTENANCE.md)的“发布”一节）。
 

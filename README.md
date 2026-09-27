@@ -45,11 +45,13 @@ SpaceLens 从压缩包预览起步，如今也能预览文件夹、代码、文�
 - **运行构建后的应用**：macOS 12 或更高版本。
 - **从当前源码构建**：macOS 15.6 或更高版本、Xcode 26 或更高版本。新版应用图标使用 Xcode 26 引入的 Icon Composer 格式。
 
-项目会生成 arm64 与 x86_64 通用应用。目前已在 Apple Silicon、macOS 27 上完成实机验收；Intel Mac 和 macOS 12–26 尚未完成实机测试。由于当前只提供源码安装，实际构建机器需要满足上面的 Xcode 要求。
+项目会生成 arm64 与 x86_64 通用应用。目前已在 Apple Silicon、macOS 27 上完成实机验收；Intel Mac 和 macOS 12–26 尚未完成实机测试。下载 DMG 安装不需要 Xcode；只有从源码构建时才需要满足上面的 Xcode 要求。
 
 ## 安装
 
-SpaceLens 目前提供源码安装，尚未发布经过 Apple Developer ID 签名和公证的安装包；维护者可用 `./scripts/package-dmg.sh` 生成 ad hoc 签名的 DMG（首次打开需按[安装文档](docs/INSTALL.md)放行 Gatekeeper）。
+推荐从 [GitHub Releases](https://github.com/linzh0632/SpaceLens/releases/latest) 下载最新的 `SpaceLens-<版本>.dmg`，打开后把 SpaceLens 拖入 Applications。当前 DMG 使用 ad hoc 签名且未经 Apple 公证，因此首次打开需要按[安装指南](docs/INSTALL.md)中的步骤放行 Gatekeeper。
+
+也可以从源码构建：
 
 ```sh
 git clone https://github.com/linzh0632/SpaceLens.git
@@ -58,7 +60,7 @@ cd SpaceLens
 ./scripts/install.sh
 ```
 
-应用默认安装到 `/Applications/SpaceLens.app`。首次启动后，如果 Finder 仍使用系统信息面板，请前往“系统设置 → 通用 → 登录项与扩展 → Quick Look”并启用 SpaceLens。
+应用必须放在 `/Applications/SpaceLens.app`。首次启动后，如果 Finder 仍使用系统信息面板，请前往“系统设置 → 通用 → 登录项与扩展 → Quick Look”并启用 SpaceLens。
 
 更新、卸载和故障排查步骤见[安装指南](docs/INSTALL.md)。
 

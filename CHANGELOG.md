@@ -2,13 +2,14 @@
 
 ## Unreleased
 
-- 修复“关于”页检查更新后没有结果反馈的问题；现在两个设置页面都会区分“尚无正式 Release”和网络请求失败，并在发现新版本时提供发布页入口。
-- 优化公开文档结构：重写中英文 README，补充文档索引，并将阶段验收记录归入开发档案；区分 macOS 12 运行目标与 Xcode 26 源码构建要求。
-- GitHub Actions 更新为带 Xcode 26 的 `macos-26` 环境，以支持当前 Icon Composer 图标工程。
-- 避免长期缓存跨线程共享的 `UserDefaults` 实例，为后续启用 Swift 6 严格并发检查做好准备；语言选择行为不变。
-
 ## 0.9.2 — 2026-09-27
 
+- 修复“关于”页检查更新后没有结果反馈的问题；现在两个设置页面都会区分“尚无正式 Release”和网络请求失败，并在发现新版本时提供发布页入口。
+- 优化设置界面的控件对齐和更新状态间距。
+- 优化公开文档结构，补充中英文 README、界面截图、文档索引和 DMG 安装说明，并将阶段验收记录归入开发档案。
+- GitHub Actions 更新为带 Xcode 26 的 `macos-26` 环境，以支持当前 Icon Composer 图标工程。
+- 避免长期缓存跨线程共享的 `UserDefaults` 实例，为后续启用 Swift 6 严格并发检查做好准备；语言选择行为不变。
+- 首次提供可从 GitHub Releases 下载的通用 DMG。
 - 新增 `scripts/package-dmg.sh`：构建 Release 版本并打包成 `build/dmg/SpaceLens-<版本>.dmg`，内含应用与指向 `/Applications` 的快捷方式。
 - 打包前会校验：预览扩展存在、二进制为 arm64 + x86_64 通用、app 与扩展签名有效、主应用没有文档打开角色。输出压缩映像（UDZO）并打印 sha256。
 - 安装文档补充"打包 DMG"与"从 DMG 安装（未公证）"两节，给出首次打开的两种放行方式（右键打开，或 `xattr -dr com.apple.quarantine`）。映像仍为本机 ad hoc 签名，未经 Developer ID 签名与公证。

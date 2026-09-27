@@ -45,11 +45,13 @@ See the [format matrix](docs/FEATURE-MATRIX.md) for detailed limits and containe
 - **Running a built app:** macOS 12 or later.
 - **Building the current source:** macOS 15.6 or later with Xcode 26 or later. The app icon uses the Icon Composer format introduced with Xcode 26.
 
-The project builds a universal arm64/x86_64 app. It has been tested on Apple Silicon with macOS 27; Intel Macs and macOS 12–26 have not yet received hardware testing. Because only source installation is currently available, the build machine must meet the Xcode requirement above.
+The project builds a universal arm64/x86_64 app. It has been tested on Apple Silicon with macOS 27; Intel Macs and macOS 12–26 have not yet received hardware testing. Installing the DMG does not require Xcode; the Xcode requirement above applies only when building from source.
 
-## Install from source
+## Install
 
-SpaceLens does not yet provide a Developer ID-signed and notarized binary release.
+Download the latest `SpaceLens-<version>.dmg` from [GitHub Releases](https://github.com/linzh0632/SpaceLens/releases/latest), open it, and drag SpaceLens into Applications. The current DMG is ad hoc signed and not notarized, so follow the Gatekeeper steps in the [installation guide](docs/INSTALL.md) on first launch.
+
+You can also build from source:
 
 ```sh
 git clone https://github.com/linzh0632/SpaceLens.git
@@ -58,9 +60,9 @@ cd SpaceLens
 ./scripts/install.sh
 ```
 
-The app is installed to `/Applications/SpaceLens.app`. After the first launch, enable SpaceLens under System Settings → General → Login Items & Extensions → Quick Look if Finder still shows the native information panel.
+SpaceLens must be installed at `/Applications/SpaceLens.app`. After the first launch, enable it under System Settings → General → Login Items & Extensions → Quick Look if Finder still shows the native information panel.
 
-The detailed [installation guide](docs/INSTALL.md) is currently maintained in Chinese and covers updates, removal, and troubleshooting.
+The detailed [installation guide](docs/INSTALL.md) is currently maintained in Chinese and covers Gatekeeper approval, updates, removal, and troubleshooting.
 
 ## Use
 
