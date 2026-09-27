@@ -78,19 +78,19 @@ SpaceLens 只在应用运行时提供预览。正常退出 SpaceLens 会停用�
 
 在文件树中选择内容，右侧即可继续查看结构化数据、文本、代码等支持的格式。
 
-![SpaceLens 文件夹与 JSON 内容预览](docs/images/folder-preview.png)
+![SpaceLens 文件夹与 JSON 内容预览](https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/folder-preview.png)
 
 ### 归档内容预览
 
 无需解压即可浏览归档目录，并在同一窗口查看其中的文件内容。
 
-![SpaceLens TAR 归档与文本内容预览](docs/images/archive-preview.png)
+![SpaceLens TAR 归档与文本内容预览](https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/archive-preview.png)
 
 ### 应用设置
 
 <p align="center">
-  <img src="docs/images/settings-features.png" width="49%" alt="SpaceLens 功能设置页面">
-  <img src="docs/images/settings-about.png" width="49%" alt="SpaceLens 关于与隐私页面">
+  <img src="https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/settings-features.png" width="49%" alt="SpaceLens 功能设置页面">
+  <img src="https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/settings-about.png" width="49%" alt="SpaceLens 关于与隐私页面">
 </p>
 
 ## 需要了解的边界

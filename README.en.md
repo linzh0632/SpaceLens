@@ -78,19 +78,19 @@ SpaceLens provides previews only while the app is running. A normal quit disable
 
 Select an item in the file tree to inspect supported structured data, text, source code, and more in the detail pane.
 
-![SpaceLens folder and JSON content preview](docs/images/folder-preview.png)
+![SpaceLens folder and JSON content preview](https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/folder-preview.png)
 
 ### Archive preview
 
 Browse an archive without extracting it, then inspect its files in the same window.
 
-![SpaceLens TAR archive and text content preview](docs/images/archive-preview.png)
+![SpaceLens TAR archive and text content preview](https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/archive-preview.png)
 
 ### App settings
 
 <p align="center">
-  <img src="docs/images/settings-features.png" width="49%" alt="SpaceLens feature settings">
-  <img src="docs/images/settings-about.png" width="49%" alt="SpaceLens About and privacy page">
+  <img src="https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/settings-features.png" width="49%" alt="SpaceLens feature settings">
+  <img src="https://cdn.jsdelivr.net/gh/linzh0632/SpaceLens@v0.9.2/docs/images/settings-about.png" width="49%" alt="SpaceLens About and privacy page">
 </p>
 
 ## Important boundaries
