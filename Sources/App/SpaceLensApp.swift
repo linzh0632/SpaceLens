@@ -572,7 +572,8 @@ private struct SpaceLensSettingsView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
-                        .frame(maxWidth: 150)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(width: 150, alignment: .trailing)
                     }
                 }
                 helper(L10n.text("界面会立即切换；预览窗口在下一次打开时使用新的语言。", "The interface switches immediately; open preview windows pick up the new language next time."))
@@ -655,6 +656,11 @@ private struct SpaceLensSettingsView: View {
                     }
                 }
                 helper(updateHelperText)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 2)
+                    .padding(.bottom, 14)
             }
             section(L10n.text("隐私与许可", "Privacy and license")) {
                 card {
