@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report / 安全问题
+    url: https://github.com/linzh0632/SpaceLens/security/policy
+    about: Please read the security policy before reporting a vulnerability. / 报告漏洞前请先阅读安全策略。

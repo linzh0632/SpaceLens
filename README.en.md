@@ -85,7 +85,7 @@ See the [privacy statement](docs/PRIVACY.md), [security policy](SECURITY.md), an
 
 ## Contributing
 
-Issues and pull requests are welcome. Do not upload private sample files to public issues; use a minimal synthetic fixture whenever possible. Read [CONTRIBUTING.md](CONTRIBUTING.md) before making code changes.
+Issues and pull requests are welcome. Do not upload private sample files to public issues; use a minimal synthetic fixture whenever possible. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
 ## License
 

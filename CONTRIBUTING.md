@@ -1,6 +1,6 @@
 # Contributing to SpaceLens
 
-欢迎提交问题、格式兼容性样例和代码改进。SpaceLens 的首要原则是：预览必须保持本地、只读，并且不能改变文件的默认打开方式。
+欢迎提交问题、格式兼容性样例和代码改进。参与项目前请阅读[行为准则](CODE_OF_CONDUCT.md)。SpaceLens 的首要原则是：预览必须保持本地、只读，并且不能改变文件的默认打开方式。
 
 ## 提交问题
 
@@ -44,7 +44,7 @@
 
 ## English
 
-Issues, compatibility reports, and pull requests are welcome. SpaceLens previews must remain local and read-only, and the host app must never become a default document opener.
+Issues, compatibility reports, and pull requests are welcome. Please read the [Code of Conduct](CODE_OF_CONDUCT.md) before participating. SpaceLens previews must remain local and read-only, and the host app must never become a default document opener.
 
 When reporting a bug, include the macOS and SpaceLens versions, file format, expected and observed behavior, and reliable reproduction steps. Do not attach private files to public issues; prefer a minimal synthetic fixture. Report security issues as described in [SECURITY.md](SECURITY.md).
 

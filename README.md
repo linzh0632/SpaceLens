@@ -98,7 +98,7 @@ SpaceLens 不上传文件、文件名、目录结构或预览结果，不加载�
 
 ## 参与项目
 
-欢迎提交 Issue 和 Pull Request。报告兼容性问题时，请避免上传包含隐私信息的真实文件，并尽量提供最小的合成样例。开始开发前请阅读[贡献指南](CONTRIBUTING.md)。
+欢迎提交 Issue 和 Pull Request。报告兼容性问题时，请避免上传包含隐私信息的真实文件，并尽量提供最小的合成样例。参与前请阅读[贡献指南](CONTRIBUTING.md)和[行为准则](CODE_OF_CONDUCT.md)。
 
 ## 许可证
 

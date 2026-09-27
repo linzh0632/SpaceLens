@@ -1,0 +1,33 @@
+name: Feature request / 功能建议
+description: Suggest a format or workflow improvement / 建议新的格式或体验改进
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case / 问题或使用场景
+      description: Describe what you are trying to preview and why the current behavior is insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior / 建议方案
+    validations:
+      required: true
+  - type: input
+    id: format
+    attributes:
+      label: Related file type / 相关文件类型
+      placeholder: Leave blank if this is not format-specific.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 考虑过的替代方案
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Project principles / 项目原则
+      options:
+        - label: This request can keep previews local and read-only. / 此建议可以保持预览在本地且只读。
+          required: true
